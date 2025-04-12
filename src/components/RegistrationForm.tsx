@@ -193,35 +193,30 @@ const RegistrationForm: React.FC = () => {
         body: formDataToSend,
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
         // Handle specific error cases
         if (response.status === 400) {
-          if (errorData.message.includes('email')) {
+          if (data.message.includes('Email already exists')) {
             setErrors(prev => ({ ...prev, email: 'This email is already registered' }));
-            throw new Error('This email is already registered. Please use a different email or try logging in.');
-          } else if (errorData.message.includes('phone')) {
+            toast.error('This email is already registered. Please use a different email.');
+            return;
+          } else if (data.message.includes('phone')) {
             setErrors(prev => ({ ...prev, phone: 'This phone number is already registered' }));
-            throw new Error('This phone number is already registered. Please use a different phone number.');
+            toast.error('This phone number is already registered. Please use a different phone number.');
+            return;
           }
         }
-        throw new Error(errorData.message || 'Registration failed. Please try again.');
+        throw new Error(data.message || 'Registration failed. Please try again.');
       }
 
-      await response.json();
       toast.success('Registration successful! Please check your email.');
       navigate('/thank-you');
     } catch (error) {
       console.error('Error during registration:', error);
-      // Show more user-friendly error messages
       if (error instanceof Error) {
-        if (error.message.includes('email')) {
-          toast.error(error.message);
-        } else if (error.message.includes('phone')) {
-          toast.error(error.message);
-        } else {
-          toast.error('Registration failed. Please check your information and try again.');
-        }
+        toast.error(error.message);
       } else {
         toast.error('An unexpected error occurred. Please try again later.');
       }

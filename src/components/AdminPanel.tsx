@@ -238,32 +238,32 @@ const AdminPanel: React.FC = () => {
   const getPhotoUrl = (photoPath: string | undefined) => {
     if (!photoPath) return '/default-avatar.png';
     
-    // If it's already a full URL, check if it's using the old domain
+    if (photoPath.includes('gym-backend-hz0n.onrender.com')) {
+      return photoPath;
+    } else if (photoPath.includes('gym-backend-hz0n.onrender.com')) {
+      return photoPath.replace(
+        'https://gym-backend-hz0n.onrender.com',
+        'https://gym-backend-hz0n.onrender.com'
+      );
+    }
+    
+    // If it's just a path (starts with /uploads), append it to API_BASE_URL
+    if (photoPath.startsWith('/uploads/')) {
+      return `${API_BASE_URL}${photoPath}`;
+    }
+    
+    // For default avatar
+    if (photoPath === '/default-avatar.png') {
+      return `${API_BASE_URL}${photoPath}`;
+    }
+    
+    // If it's already a full URL with the correct domain, return as is
     if (photoPath.startsWith('http')) {
-      if (photoPath.includes('gym-backend-mz5w.onrender.com')) {
-        return photoPath.replace(
-          'https://gym-backend-mz5w.onrender.com',
-          'https://gym-backend-hz0n.onrender.com'
-        );
-      }
       return photoPath;
     }
     
-    // Clean the path by removing any double slashes
-    const cleanPath = photoPath.replace(/\/+/g, '/');
-    
-    // If the path already includes the API_BASE_URL, return it as is
-    if (cleanPath.includes(API_BASE_URL)) {
-      return cleanPath;
-    }
-    
-    // For paths that start with /uploads, ensure we're using the correct base URL
-    if (cleanPath.startsWith('/uploads/')) {
-      return `${API_BASE_URL}${cleanPath}`;
-    }
-    
-    // For any other paths, prepend the API_BASE_URL
-    return `${API_BASE_URL}${cleanPath}`;
+    // For any other case, assume it's a relative path and append to API_BASE_URL
+    return `${API_BASE_URL}/${photoPath.replace(/^\/+/, '')}`;
   };
 
   return (
