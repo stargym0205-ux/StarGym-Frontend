@@ -23,25 +23,18 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
     const minimumLoadingTime = new Promise(resolve => setTimeout(resolve, 1000));
     
     try {
-      // Create AbortController for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1000); // 1 second timeout
-
-      const loginPromise = fetch(`${API_BASE_URL}/api/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
         credentials: 'include',
-        body: JSON.stringify(credentials),
-        signal: controller.signal
+        body: JSON.stringify(credentials)
       });
 
-      // Wait for both the login request and minimum loading time
-      const [response] = await Promise.all([loginPromise, minimumLoadingTime]);
-
-      clearTimeout(timeoutId);
+      // Wait for minimum loading time
+      await minimumLoadingTime;
 
       if (!response.ok) {
         const data = await response.json();
@@ -56,16 +49,11 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
       }
       toast.success('Login successful!');
       onLogin();
-    } catch (err: unknown) {
+    } catch (err) {
       console.error('Login error:', err);
       if (err instanceof Error) {
-        if (err.name === 'AbortError') {
-          setError('Connection timeout. Please check your internet connection and try again.');
-          toast.error('Connection timeout. Please check your internet connection.');
-        } else {
-          setError(err.message || 'Login failed. Please try again.');
-          toast.error(err.message || 'Login failed. Please try again.');
-        }
+        setError(err.message || 'Login failed. Please try again.');
+        toast.error(err.message || 'Login failed. Please try again.');
       } else {
         setError('An unexpected error occurred. Please try again.');
         toast.error('An unexpected error occurred.');
