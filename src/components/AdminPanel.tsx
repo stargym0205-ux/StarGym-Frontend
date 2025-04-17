@@ -236,15 +236,16 @@ const AdminPanel: React.FC = () => {
   };
 
   const getPhotoUrl = (photoPath: string | undefined) => {
-    if (!photoPath) return '/default-avatar.png';
+    if (!photoPath) return `${API_BASE_URL}/default-avatar.png`;
     
-    if (photoPath.includes('gym-backend-hz0n.onrender.com')) {
+    // If it's a data URL, return as is
+    if (photoPath.startsWith('data:')) {
       return photoPath;
-    } else if (photoPath.includes('gym-backend-hz0n.onrender.com')) {
-      return photoPath.replace(
-        'https://gym-backend-hz0n.onrender.com',
-        'https://gym-backend-hz0n.onrender.com'
-      );
+    }
+    
+    // If it's already a full URL
+    if (photoPath.startsWith('http')) {
+      return photoPath;
     }
     
     // If it's just a path (starts with /uploads), append it to API_BASE_URL
@@ -257,13 +258,16 @@ const AdminPanel: React.FC = () => {
       return `${API_BASE_URL}${photoPath}`;
     }
     
-    // If it's already a full URL with the correct domain, return as is
-    if (photoPath.startsWith('http')) {
-      return photoPath;
-    }
-    
     // For any other case, assume it's a relative path and append to API_BASE_URL
     return `${API_BASE_URL}/${photoPath.replace(/^\/+/, '')}`;
+  };
+
+  // Function to handle image loading errors
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const target = e.target as HTMLImageElement;
+    if (!target.src.includes('default-avatar.png')) {
+      target.src = `${API_BASE_URL}/default-avatar.png`;
+    }
   };
 
   return (
@@ -480,13 +484,7 @@ const AdminPanel: React.FC = () => {
                           className="h-10 w-10 rounded-full object-cover"
                           src={getPhotoUrl(user.photo)}
                           alt={user.name}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            if (target.src !== '/default-avatar.png') {
-                              console.error('Failed to load image:', user.photo);
-                              target.src = '/default-avatar.png';
-                            }
-                          }}
+                          onError={handleImageError}
                         />
                       </div>
                       <div className="ml-4">
@@ -706,13 +704,7 @@ const AdminPanel: React.FC = () => {
                   src={getPhotoUrl(selectedUser.photo)}
                   alt={selectedUser.name}
                   className="w-32 h-32 rounded-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    if (target.src !== '/default-avatar.png') {
-                      console.error('Failed to load image:', selectedUser.photo);
-                      target.src = '/default-avatar.png';
-                    }
-                  }}
+                  onError={handleImageError}
                 />
               </div>
 
