@@ -235,47 +235,30 @@ const AdminPanel: React.FC = () => {
     }).format(amount);
   };
 
-  const getPhotoUrl = (photoPath: string | undefined) => {
-    if (!photoPath) return `${API_BASE_URL}/default-avatar.png`;
+  const getPhotoUrl = (photoPath: string) => {
+    if (!photoPath) {
+      return `https://res.cloudinary.com/dovjfipbt/image/upload/v1744948014/default-avatar`;
+    }
     
-    // If it's a data URL, return as is
-    if (photoPath.startsWith('data:')) {
+    // If it's already a Cloudinary URL, return as is
+    if (photoPath.includes('cloudinary.com')) {
       return photoPath;
     }
     
-    // If it's already a full URL
-    if (photoPath.startsWith('http')) {
-      return photoPath;
-    }
-    
-    // If it's just a path (starts with /uploads), append it to API_BASE_URL
-    if (photoPath.startsWith('/uploads/')) {
-      return `${API_BASE_URL}${photoPath}`;
-    }
-    
-    // For default avatar
-    if (photoPath === '/default-avatar.png') {
-      return `${API_BASE_URL}${photoPath}`;
-    }
-    
-    // For any other case, assume it's a relative path and append to API_BASE_URL
-    return `${API_BASE_URL}/${photoPath.replace(/^\/+/, '')}`;
+    // For any other case, use the default avatar
+    return `https://res.cloudinary.com/dovjfipbt/image/upload/v1744948014/default-avatar`;
   };
 
-  // Function to handle image loading errors
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const target = e.target as HTMLImageElement;
-    if (!target.src.includes('default-avatar.png')) {
-      target.src = `${API_BASE_URL}/default-avatar.png`;
-    }
+    e.currentTarget.src = `https://res.cloudinary.com/dovjfipbt/image/upload/v1744948014/default-avatar`;
   };
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-xl p-6">
+      <div className="bg-white rounded-lg shadow-xl p-4 md:p-6">
         <h2 className="text-2xl font-bold mb-6">Admin Dashboard</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-8 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="flex items-center space-x-3">
               <Users className="text-blue-500" />
@@ -355,9 +338,9 @@ const AdminPanel: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-4 mb-6">
+        <div className="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-2">
           <button
-            className={`px-4 py-2 rounded-md ${
+            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
               activeTab === 'all'
                 ? 'bg-yellow-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -367,7 +350,7 @@ const AdminPanel: React.FC = () => {
             All Members
           </button>
           <button
-            className={`px-4 py-2 rounded-md ${
+            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
               activeTab === 'pending'
                 ? 'bg-orange-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -377,7 +360,7 @@ const AdminPanel: React.FC = () => {
             Pending Payments
           </button>
           <button
-            className={`px-4 py-2 rounded-md ${
+            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
               activeTab === '1month'
                 ? 'bg-yellow-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -387,7 +370,7 @@ const AdminPanel: React.FC = () => {
             Monthly Members
           </button>
           <button
-            className={`px-4 py-2 rounded-md ${
+            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
               activeTab === '2month'
                 ? 'bg-yellow-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -397,7 +380,7 @@ const AdminPanel: React.FC = () => {
             2 Months Members
           </button>
           <button
-            className={`px-4 py-2 rounded-md ${
+            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
               activeTab === '3month'
                 ? 'bg-yellow-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -407,7 +390,7 @@ const AdminPanel: React.FC = () => {
             3 Months Members
           </button>
           <button
-            className={`px-4 py-2 rounded-md ${
+            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
               activeTab === '6month'
                 ? 'bg-yellow-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -417,7 +400,7 @@ const AdminPanel: React.FC = () => {
             6 Months Members
           </button>
           <button
-            className={`px-4 py-2 rounded-md ${
+            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
               activeTab === 'yearly'
                 ? 'bg-yellow-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -427,7 +410,7 @@ const AdminPanel: React.FC = () => {
             Yearly Members
           </button>
           <button
-            className={`px-4 py-2 rounded-md ${
+            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
               activeTab === 'expired'
                 ? 'bg-red-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -437,7 +420,7 @@ const AdminPanel: React.FC = () => {
             Expired Members
           </button>
           <button
-            className={`px-4 py-2 rounded-md ${
+            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
               activeTab === 'online-payment'
                 ? 'bg-blue-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -448,7 +431,134 @@ const AdminPanel: React.FC = () => {
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile view for users */}
+        <div className="block md:hidden">
+          <div className="space-y-4">
+            {filteredUsers().map((user) => (
+              <div 
+                key={user._id} 
+                className={`bg-white rounded-lg shadow-md p-4 border-l-4 ${
+                  user.paymentStatus === 'pending' ? 'border-yellow-400' : 'border-green-400'
+                }`}
+              >
+                <div className="flex items-center mb-3">
+                  <img
+                    className="h-12 w-12 rounded-full object-cover mr-3"
+                    src={getPhotoUrl(user.photo)}
+                    alt={user.name}
+                    onError={handleImageError}
+                  />
+                  <div>
+                    <h3 className="font-medium text-gray-900">{user.name}</h3>
+                    <p className="text-sm text-gray-500">{user.email}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <p className="text-xs text-gray-500">Plan</p>
+                    <p className="font-medium">{user.plan}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Amount</p>
+                    <p className="font-medium">{getPlanAmountDisplay(user.plan)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Payment Method</p>
+                    <p className="font-medium capitalize">{user.paymentMethod}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Status</p>
+                    <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
+                      user.paymentStatus === 'confirmed' 
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {user.paymentStatus === 'confirmed' ? 'Confirmed' : 'Pending'}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {user.paymentStatus === 'pending' && (
+                    <button
+                      onClick={() => approvePayment(user._id)}
+                      className="text-xs bg-green-500 text-white px-2 py-1 rounded flex items-center"
+                    >
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Approve
+                    </button>
+                  )}
+                  {isSubscriptionExpired(user.endDate) && (
+                    <button
+                      onClick={() => {
+                        setSelectedUserForNotification(user);
+                        setShowNotificationModal(true);
+                      }}
+                      className="text-xs bg-purple-500 text-white px-2 py-1 rounded flex items-center"
+                    >
+                      <Bell className="w-3 h-3 mr-1" />
+                      Notify
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedUser(user)}
+                    className="text-xs bg-blue-500 text-white px-2 py-1 rounded flex items-center"
+                  >
+                    <Eye className="w-3 h-3 mr-1" />
+                    View
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingUser(user);
+                      setIsEditing(true);
+                    }}
+                    className="text-xs bg-green-500 text-white px-2 py-1 rounded flex items-center"
+                  >
+                    <Edit className="w-3 h-3 mr-1" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!window.confirm('Are you sure you want to delete this member?')) {
+                        return;
+                      }
+
+                      const token = localStorage.getItem('token');
+                      if (!token) {
+                        throw new Error('No authentication token found');
+                      }
+
+                      fetch(`${API_BASE_URL}/api/users/${user._id}`, {
+                        method: 'DELETE',
+                        headers: {
+                          'Authorization': `Bearer ${token}`
+                        }
+                      })
+                      .then(response => {
+                        if (!response.ok) {
+                          throw new Error('Failed to delete member');
+                        }
+                        setUsers(currentUsers => currentUsers.filter(u => u._id !== user._id));
+                        toast.success('Member deleted successfully');
+                      })
+                      .catch(error => {
+                        toast.error(error.message || 'Failed to delete member');
+                      });
+                    }}
+                    className="text-xs bg-red-500 text-white px-2 py-1 rounded flex items-center"
+                  >
+                    <Trash className="w-3 h-3 mr-1" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Desktop table view */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -621,12 +731,12 @@ const AdminPanel: React.FC = () => {
       </div>
 
       {/* Revenue Breakdown Section */}
-      <div className="bg-white rounded-lg shadow-xl p-6">
+      <div className="bg-white rounded-lg shadow-xl p-4 md:p-6">
         <h2 className="text-2xl font-bold mb-6">Revenue Breakdown</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Monthly Revenue Chart */}
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="bg-white p-4 md:p-6 rounded-lg border border-gray-200">
             <h3 className="text-lg font-semibold mb-4">Monthly Revenue</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -643,7 +753,7 @@ const AdminPanel: React.FC = () => {
           </div>
 
           {/* Yearly Revenue Chart */}
-          <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="bg-white p-4 md:p-6 rounded-lg border border-gray-200">
             <h3 className="text-lg font-semibold mb-4">Yearly Revenue</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -686,8 +796,8 @@ const AdminPanel: React.FC = () => {
 
       {/* User Details Modal */}
       {selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full mx-4 p-6 relative">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full mx-4 p-4 md:p-6 relative">
             <button
               onClick={() => setSelectedUser(null)}
               className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
@@ -769,8 +879,8 @@ const AdminPanel: React.FC = () => {
       )}
 
       {isEditing && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full mx-4 p-6 relative">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full mx-4 p-4 md:p-6 relative">
             <button
               onClick={() => {
                 setIsEditing(false);
@@ -814,20 +924,29 @@ const AdminPanel: React.FC = () => {
               })
               .then(response => {
                 if (!response.ok) {
-                  throw new Error('Failed to update user');
+                  throw new Error('Failed to update member');
                 }
-                setUsers(users.map(user => 
-                  user._id === editingUser._id ? { ...user, ...updatedData } : user
-                ));
-                setIsEditing(false);
-                setEditingUser(null);
-                toast.success('User updated successfully!');
+                return response.json();
+              })
+              .then(data => {
+                if (data.status === 'success') {
+                  setUsers(currentUsers => 
+                    currentUsers.map(user => 
+                      user._id === editingUser._id 
+                        ? { ...user, ...updatedData } 
+                        : user
+                    )
+                  );
+                  toast.success('Member updated successfully');
+                  setIsEditing(false);
+                  setEditingUser(null);
+                }
               })
               .catch(error => {
-                toast.error(error.message || 'Failed to update user');
+                toast.error(error.message || 'Failed to update member');
               });
-            }} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            }} className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Name</label>
                   <input
@@ -900,20 +1019,10 @@ const AdminPanel: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditing(false);
-                    setEditingUser(null);
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
+              <div className="flex justify-end">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                  className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
                 >
                   Save Changes
                 </button>
@@ -923,10 +1032,10 @@ const AdminPanel: React.FC = () => {
         </div>
       )}
 
-      {/* Notification Confirmation Modal */}
+      {/* Notification Modal */}
       {showNotificationModal && selectedUserForNotification && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg max-w-md w-full mx-4 p-6 relative">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full mx-4 p-4 md:p-6 relative">
             <button
               onClick={() => {
                 setShowNotificationModal(false);
@@ -937,32 +1046,21 @@ const AdminPanel: React.FC = () => {
               ×
             </button>
 
-            <div className="text-center">
-              <Bell className="w-12 h-12 text-purple-500 mx-auto mb-4" />
-              <h2 className="text-xl font-bold mb-4">Send Expiration Notification</h2>
-              <p className="text-gray-600 mb-6">
-                Are you sure you want to send a notification to{' '}
-                <span className="font-semibold">{selectedUserForNotification.name}</span>?
-                This will send an email to {selectedUserForNotification.email} about their expired membership.
+            <h2 className="text-2xl font-bold mb-6">Send Notification</h2>
+            
+            <div className="space-y-4">
+              <p>
+                Send a notification to <strong>{selectedUserForNotification.name}</strong> about their expired membership.
               </p>
-
-              <div className="flex justify-center space-x-4">
-                <button
-                  onClick={() => {
-                    setShowNotificationModal(false);
-                    setSelectedUserForNotification(null);
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
+              
+              <div className="flex justify-end">
                 <button
                   onClick={() => notifyExpiredMember(
                     selectedUserForNotification._id,
                     selectedUserForNotification.email,
                     selectedUserForNotification.name
                   )}
-                  className="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600"
+                  className="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
                 >
                   Send Notification
                 </button>

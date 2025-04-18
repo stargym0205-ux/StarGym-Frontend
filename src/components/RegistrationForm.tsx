@@ -82,7 +82,7 @@ const RegistrationForm: React.FC = () => {
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
-  const [photoPreview, setPhotoPreview] = useState<string>(`${API_BASE_URL}/default-avatar.png`);
+  const [photoPreview, setPhotoPreview] = useState<string>('https://res.cloudinary.com/dovjfipbt/image/upload/v1744948014/default-avatar');
   const [selectedPlan, setSelectedPlan] = useState<'1month' | '2month' | '3month' | '6month' | 'yearly'>('1month');
   const [isLoading, setIsLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -278,10 +278,9 @@ const RegistrationForm: React.FC = () => {
   };
 
   // Function to handle image loading errors
-  const handleImageError = () => {
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    e.currentTarget.src = 'https://res.cloudinary.com/dovjfipbt/image/upload/v1744948014/default-avatar';
     setImageError(true);
-    // Fallback to a data URL of a simple default avatar
-    setPhotoPreview('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2NjYyI+PHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgM2MyLjY3IDAgNC44NCAyLjE3IDQuODQgNC44NCAwIDIuNjctMi4xNyA0Ljg0LTQuODQgNC44NC0yLjY3IDAtNC44NC0yLjE3LTQuODQtNC44NCAwLTIuNjcgMi4xNy00Ljg0IDQuODQtNC44NHptMCAxMmE5Ljk4IDkuOTggMCAwIDEtOC4xNi00LjIzYy4wNS0yLjcyIDUuNDQtNC4yIDguMTYtNC4yIDIuNyAwIDguMSAxLjQ4IDguMTYgNC4yQTkuOTggOS45OCAwIDAgMSAxMiAxN3oiLz48L3N2Zz4=');
   };
 
   return (
