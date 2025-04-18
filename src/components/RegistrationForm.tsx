@@ -177,8 +177,8 @@ const RegistrationForm: React.FC = () => {
         age--;
       }
 
-      if (age < 18) {
-        newErrors.dob = 'You must be at least 18 years old to register';
+      if (age < 5) {
+        newErrors.dob = 'Member must be at least 5 years old to register';
         isValid = false;
       } else if (age > 100) {
         newErrors.dob = 'Please enter a valid date of birth';
