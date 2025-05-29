@@ -20,8 +20,10 @@ function NavBar({ isAdminLoggedIn, onLogout }: { isAdminLoggedIn: boolean; onLog
     <nav className="bg-black bg-opacity-50 p-4">
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          <Dumbbell className="text-yellow-500" size={24} />
-          <span className="text-white text-xl font-bold">StarGym</span>
+          <Dumbbell className="text-yellow-500 animate-bounce" size={24} />
+          <span className="text-white text-2xl font-bold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent hover:scale-105 transition-transform duration-300 cursor-default">
+            Gold Gym
+          </span>
         </div>
         {isAdminLoggedIn && isAdminRoute && (
           <button
@@ -114,8 +116,8 @@ function App() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
-                <p>Email: stargym0205@gmail.com</p>
-                <p>Phone: 9662468784</p>
+                <p>Email: admin@gmail.com</p>
+                <p>Phone: 9101321032</p>
               </div>
             </div>
           </div>

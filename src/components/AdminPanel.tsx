@@ -800,7 +800,7 @@ const AdminPanel: React.FC = () => {
           <div className="bg-white rounded-lg max-w-2xl w-full mx-4 p-4 md:p-6 relative">
             <button
               onClick={() => setSelectedUser(null)}
-              className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
+              className="absolute right-4 top-4 text-gray-500 hover:text-gray-700 text-4xl font-bold hover:scale-110 transition-transform duration-200"
             >
               ×
             </button>
@@ -813,64 +813,68 @@ const AdminPanel: React.FC = () => {
                 <img
                   src={getPhotoUrl(selectedUser.photo)}
                   alt={selectedUser.name}
-                  className="w-32 h-32 rounded-full object-cover"
+                  className="w-48 h-48 object-cover rounded-lg shadow-lg hover:scale-105 transition-transform duration-300"
                   onError={handleImageError}
                 />
               </div>
 
               {/* Personal Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Personal Information</h3>
-                <div>
-                  <label className="block text-sm text-gray-600">Name</label>
-                  <p className="font-medium">{selectedUser.name}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600">Email</label>
-                  <p className="font-medium">{selectedUser.email}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600">Phone</label>
-                  <p className="font-medium">{selectedUser.phone}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600">Date of Birth</label>
-                  <p className="font-medium">
-                    {selectedUser.dob ? new Date(selectedUser.dob).toLocaleDateString() : 'Not provided'}
-                  </p>
+              <div className="space-y-4 bg-gray-50 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300">
+                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Personal Information</h3>
+                <div className="space-y-4">
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                    <label className="block text-sm text-gray-600 font-medium">Name</label>
+                    <p className="font-medium text-gray-800 mt-1">{selectedUser.name}</p>
+                  </div>
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                    <label className="block text-sm text-gray-600 font-medium">Email</label>
+                    <p className="font-medium text-gray-800 mt-1">{selectedUser.email}</p>
+                  </div>
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                    <label className="block text-sm text-gray-600 font-medium">Phone</label>
+                    <p className="font-medium text-gray-800 mt-1">{selectedUser.phone}</p>
+                  </div>
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                    <label className="block text-sm text-gray-600 font-medium">Date of Birth</label>
+                    <p className="font-medium text-gray-800 mt-1">
+                      {selectedUser.dob ? new Date(selectedUser.dob).toLocaleDateString() : 'Not provided'}
+                    </p>
+                  </div>
                 </div>
               </div>
 
               {/* Membership Details */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Membership Details</h3>
-                <div>
-                  <label className="block text-sm text-gray-600">Plan</label>
-                  <p className="font-medium capitalize">{selectedUser.plan}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600">Start Date</label>
-                  <p className="font-medium">{new Date(selectedUser.startDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600">End Date</label>
-                  <p className="font-medium">{new Date(selectedUser.endDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600">Payment Method</label>
-                  <p className="font-medium capitalize">{selectedUser.paymentMethod}</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-600">Payment Status</label>
-                  <span
-                    className={`inline-flex px-2 py-1 text-sm rounded-full ${
-                      selectedUser.paymentStatus === 'confirmed'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    {selectedUser.paymentStatus}
-                  </span>
+              <div className="space-y-4 bg-gray-50 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300">
+                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Membership Details</h3>
+                <div className="space-y-4">
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                    <label className="block text-sm text-gray-600 font-medium">Plan</label>
+                    <p className="font-medium text-gray-800 mt-1 capitalize">{selectedUser.plan}</p>
+                  </div>
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                    <label className="block text-sm text-gray-600 font-medium">Start Date</label>
+                    <p className="font-medium text-gray-800 mt-1">{new Date(selectedUser.startDate).toLocaleDateString()}</p>
+                  </div>
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                    <label className="block text-sm text-gray-600 font-medium">End Date</label>
+                    <p className="font-medium text-gray-800 mt-1">{new Date(selectedUser.endDate).toLocaleDateString()}</p>
+                  </div>
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                    <label className="block text-sm text-gray-600 font-medium">Payment Method</label>
+                    <p className="font-medium text-gray-800 mt-1 capitalize">{selectedUser.paymentMethod}</p>
+                  </div>
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                    <label className="block text-sm text-gray-600 font-medium">Payment Status</label>
+                    <span
+                      className={`inline-flex px-3 py-1 text-sm rounded-full mt-1 font-medium ${
+                        selectedUser.paymentStatus === 'confirmed'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}
+                    >
+                      {selectedUser.paymentStatus}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -886,7 +890,7 @@ const AdminPanel: React.FC = () => {
                 setIsEditing(false);
                 setEditingUser(null);
               }}
-              className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
+              className="absolute right-4 top-4 text-gray-500 hover:text-gray-700 text-4xl font-bold hover:scale-110 transition-transform duration-200"
             >
               ×
             </button>
