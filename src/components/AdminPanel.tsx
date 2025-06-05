@@ -17,17 +17,43 @@ interface User {
   paymentStatus: string;
 }
 
+interface RenewalRequest {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userPhone: string;
+  requestId: string;
+  plan: string;
+  paymentMethod: string;
+  amount: number;
+  requestedAt: string;
+  status: string;
+}
+
 const AdminPanel: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'all' | 'pending' | '1month' | '2month' | '3month' | '6month' | 'yearly' | 'expired' | 'online-payment'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'renewals' | '1month' | '2month' | '3month' | '6month' | 'yearly' | 'expired' | 'online-payment'>('all');
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [selectedUserForNotification, setSelectedUserForNotification] = useState<User | null>(null);
+  const [loadingStates, setLoadingStates] = useState<{ [key: string]: boolean }>({});
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isNotifying, setIsNotifying] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<{ [key: string]: boolean }>({});
+  const [pendingRenewals, setPendingRenewals] = useState<RenewalRequest[]>([]);
+  const [isLoadingRenewals, setIsLoadingRenewals] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth(); // 0-indexed
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth); // 0-indexed
 
   const fetchUsers = async () => {
     try {
+      setIsRefreshing(true);
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
@@ -50,42 +76,100 @@ const AdminPanel: React.FC = () => {
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to fetch users');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const fetchPendingRenewals = async () => {
+    try {
+      setIsLoadingRenewals(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/users/pending-renewals`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch pending renewals');
+      }
+
+      const data = await response.json();
+      console.log('Pending renewals data:', data);
+      setPendingRenewals(data.data);
+    } catch (error) {
+      console.error('Error fetching pending renewals:', error);
+      toast.error('Failed to fetch pending renewals');
+    } finally {
+      setIsLoadingRenewals(false);
     }
   };
 
   useEffect(() => {
     fetchUsers();
+    fetchPendingRenewals();
   }, []);
 
-  // Function to check if subscription is expired
-  const isSubscriptionExpired = (endDate: string) => {
-    const today = new Date();
-    const expiryDate = new Date(endDate);
-    return today > expiryDate;
-  };
-
-  // Modified filteredUsers function to include expired
   const filteredUsers = () => {
+    let filtered = [...users];
+
+    // Apply search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(user => 
+        user.name.toLowerCase().includes(searchLower) ||
+        user.email.toLowerCase().includes(searchLower) ||
+        user.phone.includes(searchTerm)
+      );
+    }
+
+    // Apply tab filters
     switch (activeTab) {
       case 'pending':
-        return users.filter(user => user.paymentStatus === 'pending');
-      case '1month':
-        return users.filter(user => user.plan === '1month');
-      case '2month':
-        return users.filter(user => user.plan === '2month');
-      case '3month':
-        return users.filter(user => user.plan === '3month');
-      case '6month':
-        return users.filter(user => user.plan === '6month');
-      case 'yearly':
-        return users.filter(user => user.plan === 'yearly');
+        return filtered.filter(user => user.paymentStatus === 'pending');
       case 'expired':
-        return users.filter(user => isSubscriptionExpired(user.endDate));
+        return filtered.filter(user => {
+          const endDate = new Date(user.endDate);
+          return endDate < new Date();
+        });
+      case '1month':
+        return filtered.filter(user => user.plan === '1month' && !isSubscriptionExpired(user.endDate));
+      case '2month':
+        return filtered.filter(user => user.plan === '2month' && !isSubscriptionExpired(user.endDate));
+      case '3month':
+        return filtered.filter(user => user.plan === '3month' && !isSubscriptionExpired(user.endDate));
+      case '6month':
+        return filtered.filter(user => user.plan === '6month' && !isSubscriptionExpired(user.endDate));
+      case 'yearly':
+        return filtered.filter(user => user.plan === 'yearly' && !isSubscriptionExpired(user.endDate));
       case 'online-payment':
-        return users.filter(user => user.paymentMethod === 'online' && user.paymentStatus === 'pending');
+        return filtered.filter(user => user.paymentMethod === 'online' && !isSubscriptionExpired(user.endDate));
       default:
-        return users;
+        return filtered.filter(user => !isSubscriptionExpired(user.endDate));
     }
+  };
+
+  const isSubscriptionExpired = (endDate: string | Date) => {
+    return new Date(endDate) < new Date();
+  };
+
+  const getSubscriptionStatus = (endDate: string | Date) => {
+    if (isSubscriptionExpired(endDate)) {
+      return {
+        text: 'Expired',
+        color: 'text-red-600'
+      };
+    }
+    return {
+      text: 'Active',
+      color: 'text-green-600'
+    };
   };
 
   const getPlanAmount = (plan: string): number => {
@@ -116,6 +200,7 @@ const AdminPanel: React.FC = () => {
     }
 
     try {
+      setLoadingStates(prev => ({ ...prev, [userId]: true }));
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
@@ -141,15 +226,36 @@ const AdminPanel: React.FC = () => {
             ? { ...user, paymentStatus: 'confirmed' } 
             : user
         ));
-        toast.success('Payment approved successfully!');
+        toast.success('Payment approved successfully!', {
+          duration: 4000,
+          position: 'top-right',
+          style: {
+            background: '#10B981',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+          },
+        });
       }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to approve payment');
+      toast.error(error.message || 'Failed to approve payment', {
+        duration: 4000,
+        position: 'top-right',
+        style: {
+          background: '#EF4444',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+        },
+      });
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [userId]: false }));
     }
   };
 
   const notifyExpiredMember = async (userId: string, userEmail: string, userName: string) => {
     try {
+      setIsNotifying(true);
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
@@ -173,37 +279,51 @@ const AdminPanel: React.FC = () => {
 
       const data = await response.json();
       if (data.status === 'success') {
-        toast.success('Notification sent successfully!');
+        toast.success('Notification sent successfully!', {
+          duration: 4000,
+          position: 'top-right',
+          style: {
+            background: '#10B981',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+          },
+        });
         setShowNotificationModal(false);
         setSelectedUserForNotification(null);
       }
     } catch (error: any) {
-      toast.error(error.message || 'Failed to send notification');
+      toast.error(error.message || 'Failed to send notification', {
+        duration: 4000,
+        position: 'top-right',
+        style: {
+          background: '#EF4444',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+        },
+      });
+    } finally {
+      setIsNotifying(false);
     }
   };
 
-  // Add revenue calculation functions
-  const calculateMonthlyRevenue = () => {
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    
+  const calculateMonthlyRevenue = (month: number, year: number) => {
     return users
       .filter(user => {
         const userDate = new Date(user.startDate);
-        return userDate.getMonth() === currentMonth && 
-               userDate.getFullYear() === currentYear &&
+        return userDate.getMonth() === month && 
+               userDate.getFullYear() === year &&
                user.paymentStatus === 'confirmed';
       })
       .reduce((total, user) => total + getPlanAmount(user.plan), 0);
   };
 
-  const calculateYearlyRevenue = () => {
-    const currentYear = new Date().getFullYear();
-    
+  const calculateYearlyRevenue = (year: number) => {
     return users
       .filter(user => {
         const userDate = new Date(user.startDate);
-        return userDate.getFullYear() === currentYear &&
+        return userDate.getFullYear() === year &&
                user.paymentStatus === 'confirmed';
       })
       .reduce((total, user) => total + getPlanAmount(user.plan), 0);
@@ -227,6 +347,36 @@ const AdminPanel: React.FC = () => {
     return planRevenue;
   };
 
+  const calculateTotalRevenue = () => {
+    return users
+      .filter(user => user.paymentStatus === 'confirmed')
+      .reduce((total, user) => total + getPlanAmount(user.plan), 0);
+  };
+
+  const calculateTotalCashRevenue = (month: number, year: number) => {
+    return users
+      .filter(user => {
+        const userDate = new Date(user.startDate);
+        return userDate.getMonth() === month && 
+               userDate.getFullYear() === year &&
+               user.paymentMethod === 'cash' && 
+               user.paymentStatus === 'confirmed';
+      })
+      .reduce((total, user) => total + getPlanAmount(user.plan), 0);
+  };
+
+  const calculateTotalOnlineRevenue = (month: number, year: number) => {
+    return users
+      .filter(user => {
+        const userDate = new Date(user.startDate);
+        return userDate.getMonth() === month && 
+               userDate.getFullYear() === year &&
+               user.paymentMethod === 'online' && 
+               user.paymentStatus === 'confirmed';
+      })
+      .reduce((total, user) => total + getPlanAmount(user.plan), 0);
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -240,12 +390,10 @@ const AdminPanel: React.FC = () => {
       return `https://res.cloudinary.com/dovjfipbt/image/upload/v1744948014/default-avatar`;
     }
     
-    // If it's already a Cloudinary URL, return as is
     if (photoPath.includes('cloudinary.com')) {
       return photoPath;
     }
     
-    // For any other case, use the default avatar
     return `https://res.cloudinary.com/dovjfipbt/image/upload/v1744948014/default-avatar`;
   };
 
@@ -253,8 +401,172 @@ const AdminPanel: React.FC = () => {
     e.currentTarget.src = `https://res.cloudinary.com/dovjfipbt/image/upload/v1744948014/default-avatar`;
   };
 
+  const deleteMember = async (userId: string) => {
+    if (!window.confirm('Are you sure you want to delete this member?')) {
+      return;
+    }
+
+    try {
+      setIsDeleting(prev => ({ ...prev, [userId]: true }));
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete member');
+      }
+
+      setUsers(currentUsers => currentUsers.filter(u => u._id !== userId));
+      toast.success('Member deleted successfully', {
+        duration: 4000,
+        position: 'top-right',
+        style: {
+          background: '#10B981',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+        },
+      });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete member', {
+        duration: 4000,
+        position: 'top-right',
+        style: {
+          background: '#EF4444',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+        },
+      });
+    } finally {
+      setIsDeleting(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const approveRenewalRequest = async (userId: string, requestId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/users/approve-renewal/${userId}/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to approve renewal request');
+      }
+
+      toast.success('Renewal request approved successfully', {
+        duration: 4000,
+        position: 'top-right',
+        style: {
+          background: '#10B981',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+        },
+      });
+
+      // Refresh both users and pending renewals
+      fetchUsers();
+      fetchPendingRenewals();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to approve renewal request', {
+        duration: 4000,
+        position: 'top-right',
+        style: {
+          background: '#EF4444',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+        },
+      });
+    }
+  };
+
+  const renderRenewalsTab = () => (
+    <div className="bg-white shadow rounded-lg">
+      <div className="px-4 py-5 sm:p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Pending Renewal Requests</h3>
+        {isLoadingRenewals ? (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : pendingRenewals.length === 0 ? (
+          <p className="text-gray-500 text-center py-4">No pending renewal requests</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Method</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested On</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {pendingRenewals.map((request) => (
+                  <tr key={request.requestId} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{request.userName}</div>
+                          <div className="text-sm text-gray-500">{request.userEmail}</div>
+                          <div className="text-sm text-gray-500">{request.userPhone}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900 capitalize">{request.plan}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900 capitalize">{request.paymentMethod}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">₹{request.amount}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">
+                        {new Date(request.requestedAt).toLocaleDateString()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm font-medium">
+                      <button
+                        onClick={() => approveRenewalRequest(request.userId, request.requestId)}
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      >
+                        Approve
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto px-4 py-8">
       <div className="bg-white rounded-lg shadow-xl p-4 md:p-6">
         <h2 className="text-2xl font-bold mb-6">Admin Dashboard</h2>
         
@@ -284,6 +596,16 @@ const AdminPanel: React.FC = () => {
             </div>
             <p className="text-3xl font-bold mt-2">
               {users.filter(u => u.paymentStatus === 'pending').length}
+            </p>
+          </div>
+
+          <div className="bg-red-50 p-4 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <Users className="text-red-500" />
+              <span className="text-lg font-semibold">Expired Members</span>
+            </div>
+            <p className="text-3xl font-bold mt-2">
+              {users.filter(u => isSubscriptionExpired(u.endDate)).length}
             </p>
           </div>
 
@@ -320,20 +642,50 @@ const AdminPanel: React.FC = () => {
           <div className="bg-emerald-50 p-4 rounded-lg">
             <div className="flex items-center space-x-3">
               <CreditCard className="text-emerald-500" />
-              <span className="text-lg font-semibold">Monthly Revenue</span>
+              <span className="text-lg font-semibold">Monthly Revenue ({new Date(selectedYear, selectedMonth).toLocaleString('default', { month: 'long' })} {selectedYear})</span>
             </div>
             <p className="text-3xl font-bold mt-2">
-              {formatCurrency(calculateMonthlyRevenue())}
+              {formatCurrency(calculateMonthlyRevenue(selectedMonth, selectedYear))}
             </p>
           </div>
 
           <div className="bg-amber-50 p-4 rounded-lg">
             <div className="flex items-center space-x-3">
               <CreditCard className="text-amber-500" />
-              <span className="text-lg font-semibold">Yearly Revenue</span>
+              <span className="text-lg font-semibold">Yearly Revenue ({selectedYear})</span>
             </div>
             <p className="text-3xl font-bold mt-2">
-              {formatCurrency(calculateYearlyRevenue())}
+              {formatCurrency(calculateYearlyRevenue(selectedYear))}
+            </p>
+          </div>
+
+          <div className="bg-teal-50 p-4 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <CreditCard className="text-teal-500" />
+              <span className="text-lg font-semibold">Total Revenue</span>
+            </div>
+            <p className="text-3xl font-bold mt-2">
+              {formatCurrency(calculateTotalRevenue())}
+            </p>
+          </div>
+
+          <div className="bg-green-100 p-4 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <CreditCard className="text-green-700" />
+              <span className="text-lg font-semibold">Cash Revenue ({new Date(selectedYear, selectedMonth).toLocaleString('default', { month: 'long' })} {selectedYear})</span>
+            </div>
+            <p className="text-3xl font-bold mt-2">
+              {formatCurrency(calculateTotalCashRevenue(selectedMonth, selectedYear))}
+            </p>
+          </div>
+
+          <div className="bg-blue-100 p-4 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <CreditCard className="text-blue-700" />
+              <span className="text-lg font-semibold">Online Revenue ({new Date(selectedYear, selectedMonth).toLocaleString('default', { month: 'long' })} {selectedYear})</span>
+            </div>
+            <p className="text-3xl font-bold mt-2">
+              {formatCurrency(calculateTotalOnlineRevenue(selectedMonth, selectedYear))}
             </p>
           </div>
         </div>
@@ -352,12 +704,32 @@ const AdminPanel: React.FC = () => {
           <button
             className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
               activeTab === 'pending'
-                ? 'bg-orange-500 text-white'
+                ? 'bg-yellow-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
             onClick={() => setActiveTab('pending')}
           >
             Pending Payments
+          </button>
+          <button
+            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
+              activeTab === 'renewals'
+                ? 'bg-yellow-500 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            onClick={() => setActiveTab('renewals')}
+          >
+            Renewal Requests
+          </button>
+          <button
+            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
+              activeTab === 'expired'
+                ? 'bg-red-500 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            onClick={() => setActiveTab('expired')}
+          >
+            Expired Members
           </button>
           <button
             className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
@@ -367,7 +739,7 @@ const AdminPanel: React.FC = () => {
             }`}
             onClick={() => setActiveTab('1month')}
           >
-            Monthly Members
+            1 Month Members
           </button>
           <button
             className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
@@ -411,16 +783,6 @@ const AdminPanel: React.FC = () => {
           </button>
           <button
             className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
-              activeTab === 'expired'
-                ? 'bg-red-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-            onClick={() => setActiveTab('expired')}
-          >
-            Expired Members
-          </button>
-          <button
-            className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
               activeTab === 'online-payment'
                 ? 'bg-blue-500 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -431,7 +793,31 @@ const AdminPanel: React.FC = () => {
           </button>
         </div>
 
-        {/* Mobile view for users */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={fetchUsers}
+            disabled={isRefreshing}
+            className={`px-3 py-1.5 text-sm rounded-md bg-blue-500 text-white hover:bg-blue-600 flex items-center ${
+              isRefreshing ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+          >
+            {isRefreshing ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Refreshing...
+              </>
+            ) : (
+              <>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw mr-1"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.75L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.75L21 16"/><path d="M21 21v-5h-5"/></svg>
+            Refresh Data
+              </>
+            )}
+          </button>
+        </div>
+
         <div className="block md:hidden">
           <div className="space-y-4">
             {filteredUsers().map((user) => (
@@ -448,24 +834,24 @@ const AdminPanel: React.FC = () => {
                     alt={user.name}
                     onError={handleImageError}
                   />
-                  <div>
-                    <h3 className="font-medium text-gray-900">{user.name}</h3>
-                    <p className="text-sm text-gray-500">{user.email}</p>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-gray-900 truncate">{user.name}</h3>
+                    <p className="text-sm text-gray-500 truncate">{user.email}</p>
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <div>
                     <p className="text-xs text-gray-500">Plan</p>
-                    <p className="font-medium">{user.plan}</p>
+                    <p className="font-medium truncate">{user.plan}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Amount</p>
-                    <p className="font-medium">{getPlanAmountDisplay(user.plan)}</p>
+                    <p className="font-medium truncate">{getPlanAmountDisplay(user.plan)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Payment Method</p>
-                    <p className="font-medium capitalize">{user.paymentMethod}</p>
+                    <p className="font-medium capitalize truncate">{user.paymentMethod}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Status</p>
@@ -483,10 +869,25 @@ const AdminPanel: React.FC = () => {
                   {user.paymentStatus === 'pending' && (
                     <button
                       onClick={() => approvePayment(user._id)}
-                      className="text-xs bg-green-500 text-white px-2 py-1 rounded flex items-center"
+                      disabled={loadingStates[user._id]}
+                      className={`text-xs bg-green-500 text-white px-2 py-1 rounded flex items-center ${
+                        loadingStates[user._id] ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
+                      {loadingStates[user._id] ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-1 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Approving...
+                        </>
+                      ) : (
+                        <>
                       <CheckCircle className="w-3 h-3 mr-1" />
                       Approve
+                        </>
+                      )}
                     </button>
                   )}
                   {isSubscriptionExpired(user.endDate) && (
@@ -503,7 +904,7 @@ const AdminPanel: React.FC = () => {
                   )}
                   <button
                     onClick={() => setSelectedUser(user)}
-                    className="text-xs bg-blue-500 text-white px-2 py-1 rounded flex items-center"
+                    className="text-xs bg-blue-500 text-white px-2 py-1 rounded flex items-center hover:bg-blue-600 transition-colors duration-200"
                   >
                     <Eye className="w-3 h-3 mr-1" />
                     View
@@ -519,37 +920,26 @@ const AdminPanel: React.FC = () => {
                     Edit
                   </button>
                   <button
-                    onClick={() => {
-                      if (!window.confirm('Are you sure you want to delete this member?')) {
-                        return;
-                      }
-
-                      const token = localStorage.getItem('token');
-                      if (!token) {
-                        throw new Error('No authentication token found');
-                      }
-
-                      fetch(`${API_BASE_URL}/api/users/${user._id}`, {
-                        method: 'DELETE',
-                        headers: {
-                          'Authorization': `Bearer ${token}`
-                        }
-                      })
-                      .then(response => {
-                        if (!response.ok) {
-                          throw new Error('Failed to delete member');
-                        }
-                        setUsers(currentUsers => currentUsers.filter(u => u._id !== user._id));
-                        toast.success('Member deleted successfully');
-                      })
-                      .catch(error => {
-                        toast.error(error.message || 'Failed to delete member');
-                      });
-                    }}
-                    className="text-xs bg-red-500 text-white px-2 py-1 rounded flex items-center"
+                    onClick={() => deleteMember(user._id)}
+                    disabled={isDeleting[user._id]}
+                    className={`text-xs bg-red-500 text-white px-2 py-1 rounded flex items-center ${
+                      isDeleting[user._id] ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
+                    {isDeleting[user._id] ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-1 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
                     <Trash className="w-3 h-3 mr-1" />
                     Delete
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -557,7 +947,6 @@ const AdminPanel: React.FC = () => {
           </div>
         </div>
 
-        {/* Desktop table view */}
         <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -598,8 +987,8 @@ const AdminPanel: React.FC = () => {
                         />
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
+                        <div className="text-sm font-medium text-gray-900 truncate">{user.name}</div>
+                        <div className="text-sm text-gray-500 truncate">{user.email}</div>
                       </div>
                     </div>
                   </td>
@@ -654,10 +1043,25 @@ const AdminPanel: React.FC = () => {
                     {user.paymentStatus === 'pending' && (
                       <button
                         onClick={() => approvePayment(user._id)}
-                        className="text-green-600 hover:text-green-900 inline-flex items-center"
+                        disabled={loadingStates[user._id]}
+                        className={`text-green-600 hover:text-green-900 inline-flex items-center ${
+                          loadingStates[user._id] ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
                       >
+                        {loadingStates[user._id] ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Approving...
+                          </>
+                        ) : (
+                          <>
                         <CheckCircle className="w-4 h-4 mr-1" />
                         Approve Payment
+                          </>
+                        )}
                       </button>
                     )}
                     {isSubscriptionExpired(user.endDate) && (
@@ -674,7 +1078,7 @@ const AdminPanel: React.FC = () => {
                     )}
                     <button
                       onClick={() => setSelectedUser(user)}
-                      className="text-blue-600 hover:text-blue-900 inline-flex items-center"
+                      className="text-blue-600 hover:text-blue-800 inline-flex items-center transition-colors duration-200"
                     >
                       <Eye className="w-4 h-4 mr-1" />
                       View
@@ -690,37 +1094,26 @@ const AdminPanel: React.FC = () => {
                       Edit
                     </button>
                     <button
-                      onClick={() => {
-                        if (!window.confirm('Are you sure you want to delete this member?')) {
-                          return;
-                        }
-
-                        const token = localStorage.getItem('token');
-                        if (!token) {
-                          throw new Error('No authentication token found');
-                        }
-
-                        fetch(`${API_BASE_URL}/api/users/${user._id}`, {
-                          method: 'DELETE',
-                          headers: {
-                            'Authorization': `Bearer ${token}`
-                          }
-                        })
-                        .then(response => {
-                          if (!response.ok) {
-                            throw new Error('Failed to delete member');
-                          }
-                          setUsers(currentUsers => currentUsers.filter(u => u._id !== user._id));
-                          toast.success('Member deleted successfully');
-                        })
-                        .catch(error => {
-                          toast.error(error.message || 'Failed to delete member');
-                        });
-                      }}
-                      className="text-red-600 hover:text-red-900 inline-flex items-center"
+                      onClick={() => deleteMember(user._id)}
+                      disabled={isDeleting[user._id]}
+                      className={`text-red-600 hover:text-red-900 inline-flex items-center ${
+                        isDeleting[user._id] ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
+                      {isDeleting[user._id] ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-1 h-4 w-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
                       <Trash className="w-4 h-4 mr-1" />
-                      Delete
+                          Delete Member
+                        </>
+                      )}
                     </button>
                   </td>
                 </tr>
@@ -730,18 +1123,48 @@ const AdminPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Revenue Breakdown Section */}
       <div className="bg-white rounded-lg shadow-xl p-4 md:p-6">
-        <h2 className="text-2xl font-bold mb-6">Revenue Breakdown</h2>
+        <h2 className="text-2xl font-bold mb-4">Revenue Breakdown</h2>
+
+        <div className="flex flex-wrap gap-4 mb-6">
+          <div>
+            <label htmlFor="month-select" className="block text-sm font-medium text-gray-700">Select Month</label>
+            <select
+              id="month-select"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm rounded-md"
+            >
+              {[...Array(12)].map((_, i) => (
+                <option key={i} value={i}>
+                  {new Date(0, i).toLocaleString('default', { month: 'long' })}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="year-select" className="block text-sm font-medium text-gray-700">Select Year</label>
+            <select
+              id="year-select"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm rounded-md"
+            >
+              {[...Array(11)].map((_, i) => {
+                const year = currentYear - 5 + i;
+                return <option key={year} value={year}>{year}</option>;
+              })}
+            </select>
+          </div>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Monthly Revenue Chart */}
           <div className="bg-white p-4 md:p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-semibold mb-4">Monthly Revenue</h3>
+            <h3 className="text-lg font-semibold mb-4">Monthly Revenue ({new Date(selectedYear, selectedMonth).toLocaleString('default', { month: 'long' })} {selectedYear})</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Total Revenue</span>
-                <span className="font-bold">{formatCurrency(calculateMonthlyRevenue())}</span>
+                <span className="text-gray-600">Monthly Revenue ({new Date(selectedYear, selectedMonth).toLocaleString('default', { month: 'long' })} {selectedYear})</span>
+                <span className="font-bold">{formatCurrency(calculateMonthlyRevenue(selectedMonth, selectedYear))}</span>
               </div>
               <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
                 <div 
@@ -752,13 +1175,12 @@ const AdminPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Yearly Revenue Chart */}
           <div className="bg-white p-4 md:p-6 rounded-lg border border-gray-200">
-            <h3 className="text-lg font-semibold mb-4">Yearly Revenue</h3>
+            <h3 className="text-lg font-semibold mb-4">Yearly Revenue ({selectedYear})</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Total Revenue</span>
-                <span className="font-bold">{formatCurrency(calculateYearlyRevenue())}</span>
+                <span className="text-gray-600">Yearly Revenue ({selectedYear})</span>
+                <span className="font-bold">{formatCurrency(calculateYearlyRevenue(selectedYear))}</span>
               </div>
               <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
                 <div 
@@ -770,7 +1192,6 @@ const AdminPanel: React.FC = () => {
           </div>
         </div>
 
-        {/* Plan-wise Revenue Breakdown */}
         <div className="mt-8">
           <h3 className="text-lg font-semibold mb-4">Revenue by Plan</h3>
           <div className="space-y-4">
@@ -784,7 +1205,7 @@ const AdminPanel: React.FC = () => {
                   <div 
                     className="h-full bg-blue-500 rounded-full"
                     style={{ 
-                      width: `${(revenue / calculateYearlyRevenue()) * 100}%` 
+                      width: `${(revenue / calculateYearlyRevenue(selectedYear)) * 100}%` 
                     }}
                   ></div>
                 </div>
@@ -794,47 +1215,57 @@ const AdminPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* User Details Modal */}
       {selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full mx-4 p-4 md:p-6 relative">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-sm">
+          <div className="bg-white rounded-lg max-w-2xl w-full mx-4 p-4 md:p-6 relative my-8 animate-fadeIn max-h-[90vh] overflow-y-auto flex flex-col">
             <button
               onClick={() => setSelectedUser(null)}
-              className="absolute right-4 top-4 text-gray-500 hover:text-gray-700 text-4xl font-bold hover:scale-110 transition-transform duration-200"
+              className="absolute right-4 top-4 text-gray-500 hover:text-gray-700 text-4xl font-bold hover:scale-110 transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300 rounded-full p-1"
+              aria-label="Close modal"
             >
               ×
             </button>
 
-            <h2 className="text-2xl font-bold mb-6">Member Details</h2>
+            <h2 className="text-2xl font-bold mb-4 md:mb-6 text-gray-800">Member Details</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Photo */}
-              <div className="md:col-span-2 flex justify-center">
+            <div className="flex justify-center mb-4">
+              <div className="relative group w-32 h-32 md:w-48 md:h-48 bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
                 <img
                   src={getPhotoUrl(selectedUser.photo)}
                   alt={selectedUser.name}
-                  className="w-48 h-48 object-cover rounded-lg shadow-lg hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover rounded-lg shadow-lg hover:scale-105 transition-transform duration-300 cursor-pointer"
                   onError={handleImageError}
                 />
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-lg transition-all duration-300 flex items-center justify-center">
+                  <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-sm font-medium">
+                    View Full Size
+                  </span>
+                </div>
+              </div>
               </div>
 
-              {/* Personal Information */}
-              <div className="space-y-4 bg-gray-50 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300">
-                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Personal Information</h3>
-                <div className="space-y-4">
-                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 flex-grow overflow-y-auto pb-4">
+              <div className="space-y-3 md:space-y-4 bg-gray-50 p-4 md:p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Personal Information
+                </h3>
+                <div className="space-y-3 md:space-y-4">
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200 bg-white p-3 rounded-lg shadow-sm">
                     <label className="block text-sm text-gray-600 font-medium">Name</label>
-                    <p className="font-medium text-gray-800 mt-1">{selectedUser.name}</p>
+                    <p className="font-medium text-gray-800 mt-1 break-words">{selectedUser.name}</p>
                   </div>
-                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200 bg-white p-3 rounded-lg shadow-sm">
                     <label className="block text-sm text-gray-600 font-medium">Email</label>
-                    <p className="font-medium text-gray-800 mt-1">{selectedUser.email}</p>
+                    <p className="font-medium text-gray-800 mt-1 break-words">{selectedUser.email}</p>
                   </div>
-                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200 bg-white p-3 rounded-lg shadow-sm">
                     <label className="block text-sm text-gray-600 font-medium">Phone</label>
-                    <p className="font-medium text-gray-800 mt-1">{selectedUser.phone}</p>
+                    <p className="font-medium text-gray-800 mt-1 break-words">{selectedUser.phone}</p>
                   </div>
-                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200 bg-white p-3 rounded-lg shadow-sm">
                     <label className="block text-sm text-gray-600 font-medium">Date of Birth</label>
                     <p className="font-medium text-gray-800 mt-1">
                       {selectedUser.dob ? new Date(selectedUser.dob).toLocaleDateString() : 'Not provided'}
@@ -843,30 +1274,34 @@ const AdminPanel: React.FC = () => {
                 </div>
               </div>
 
-              {/* Membership Details */}
-              <div className="space-y-4 bg-gray-50 p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300">
-                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">Membership Details</h3>
-                <div className="space-y-4">
-                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+              <div className="space-y-3 md:space-y-4 bg-gray-50 p-4 md:p-6 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1">
+                <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Membership Details
+                </h3>
+                <div className="space-y-3 md:space-y-4">
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200 bg-white p-3 rounded-lg shadow-sm">
                     <label className="block text-sm text-gray-600 font-medium">Plan</label>
                     <p className="font-medium text-gray-800 mt-1 capitalize">{selectedUser.plan}</p>
                   </div>
-                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200 bg-white p-3 rounded-lg shadow-sm">
                     <label className="block text-sm text-gray-600 font-medium">Start Date</label>
                     <p className="font-medium text-gray-800 mt-1">{new Date(selectedUser.startDate).toLocaleDateString()}</p>
                   </div>
-                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200 bg-white p-3 rounded-lg shadow-sm">
                     <label className="block text-sm text-gray-600 font-medium">End Date</label>
                     <p className="font-medium text-gray-800 mt-1">{new Date(selectedUser.endDate).toLocaleDateString()}</p>
                   </div>
-                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200 bg-white p-3 rounded-lg shadow-sm">
                     <label className="block text-sm text-gray-600 font-medium">Payment Method</label>
                     <p className="font-medium text-gray-800 mt-1 capitalize">{selectedUser.paymentMethod}</p>
                   </div>
-                  <div className="transform hover:scale-[1.02] transition-transform duration-200">
+                  <div className="transform hover:scale-[1.02] transition-transform duration-200 bg-white p-3 rounded-lg shadow-sm">
                     <label className="block text-sm text-gray-600 font-medium">Payment Status</label>
                     <span
-                      className={`inline-flex px-3 py-1 text-sm rounded-full mt-1 font-medium ${
+                      className={`inline-flex px-2 md:px-3 py-1 text-xs md:text-sm rounded-full mt-1 font-medium ${
                         selectedUser.paymentStatus === 'confirmed'
                           ? 'bg-green-100 text-green-800'
                           : 'bg-yellow-100 text-yellow-800'
@@ -877,6 +1312,45 @@ const AdminPanel: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setEditingUser(selectedUser);
+                  setIsEditing(true);
+                  setSelectedUser(null);
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200 flex items-center"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Member
+              </button>
+              {selectedUser.paymentStatus === 'pending' && (
+                <button
+                  onClick={() => {
+                    approvePayment(selectedUser._id);
+                    setSelectedUser(null);
+                  }}
+                  className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Approve Payment
+                </button>
+              )}
+              {isSubscriptionExpired(selectedUser.endDate) && (
+                <button
+                  onClick={() => {
+                    setSelectedUserForNotification(selectedUser);
+                    setShowNotificationModal(true);
+                    setSelectedUser(null);
+                  }}
+                  className="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transform hover:scale-105 active:scale-95 transition-all duration-200 flex items-center"
+                >
+                  <Bell className="w-4 h-4 mr-2" />
+                  Send Notification
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1036,7 +1510,6 @@ const AdminPanel: React.FC = () => {
         </div>
       )}
 
-      {/* Notification Modal */}
       {showNotificationModal && selectedUserForNotification && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full mx-4 p-4 md:p-6 relative">
@@ -1046,6 +1519,7 @@ const AdminPanel: React.FC = () => {
                 setSelectedUserForNotification(null);
               }}
               className="absolute right-4 top-4 text-gray-500 hover:text-gray-700"
+              disabled={isNotifying}
             >
               ×
             </button>
@@ -1064,15 +1538,30 @@ const AdminPanel: React.FC = () => {
                     selectedUserForNotification.email,
                     selectedUserForNotification.name
                   )}
-                  className="px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                  disabled={isNotifying}
+                  className={`px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                    isNotifying ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  Send Notification
+                  {isNotifying ? (
+                    <div className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Sending...
+                    </div>
+                  ) : (
+                    'Send Notification'
+                  )}
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {activeTab === 'renewals' && renderRenewalsTab()}
     </div>
   );
 };

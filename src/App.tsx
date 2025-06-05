@@ -5,6 +5,8 @@ import RegistrationForm from './components/RegistrationForm';
 import AdminPanel from './components/AdminPanel';
 import AdminLogin from './components/AdminLogin';
 import ThankYou from './components/ThankYou';
+import RenewMembership from './components/RenewMembership';
+import RenewalPending from './components/RenewalPending';
 
 // Define API base URL - make sure this matches your backend port
 export const API_BASE_URL = process.env.NODE_ENV === 'production' 
@@ -91,6 +93,8 @@ function App() {
                 )
               } 
             />
+            <Route path="/renew-membership/:token" element={<RenewMembership />} />
+            <Route path="/renewal-pending" element={<RenewalPending />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

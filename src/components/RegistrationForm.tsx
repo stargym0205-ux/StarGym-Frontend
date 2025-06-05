@@ -9,6 +9,7 @@ interface FormData {
   name: string;
   email: string;
   phone: string;
+  gender: 'Male' | 'Female' | 'Other' | '';
   dob: string;
   photo: File | null;
   plan: '1month' | '2month' | '3month' | '6month' | 'yearly';
@@ -22,6 +23,7 @@ interface FormErrors {
   name?: string;
   email?: string;
   phone?: string;
+  gender?: string;
   dob?: string;
   photo?: string;
   [key: string]: string | undefined;
@@ -73,6 +75,7 @@ const RegistrationForm: React.FC = () => {
     name: '',
     email: '',
     phone: '',
+    gender: '',
     dob: '',
     photo: null,
     plan: '1month',
@@ -91,9 +94,9 @@ const RegistrationForm: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       const fileSize = file.size / (1024 * 1024); // Convert to MB
-      if (fileSize > 2) {
-        toast.error('Photo size must be less than 2MB');
-        setErrors(prev => ({ ...prev, photo: 'Photo size must be less than 2MB' }));
+      if (fileSize > 10) {
+        toast.error('Photo size must be less than 10MB');
+        setErrors(prev => ({ ...prev, photo: 'Photo size must be less than 10MB' }));
         return;
       }
 
@@ -115,58 +118,79 @@ const RegistrationForm: React.FC = () => {
   };
 
   const handlePlanSelect = (plan: PlanOption) => {
-    const startDate = new Date();
+    const startDate = new Date(formData.startDate); // Use current start date from state
     const endDate = addMonths(startDate, plan.months);
     setSelectedPlan(plan.id);
     setFormData(prev => ({
       ...prev,
       plan: plan.id,
-      startDate: startDate.toISOString().split('T')[0],
+      // startDate is not updated here, user controls it
       endDate: endDate.toISOString().split('T')[0]
     }));
   };
 
   const validateForm = (): boolean => {
+    console.log('validateForm started');
     const newErrors: FormErrors = {};
     let isValid = true;
 
     // Name validation
+    console.log('Validating name...');
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
       isValid = false;
+      console.log('Name validation failed');
     } else if (formData.name.trim().length < 3) {
       newErrors.name = 'Name must be at least 3 characters long';
       isValid = false;
+      console.log('Name validation failed: too short');
     }
 
     // Email validation
+    console.log('Validating email...');
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
       isValid = false;
+      console.log('Email validation failed');
     } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
         newErrors.email = 'Please enter a valid email address';
         isValid = false;
+        console.log('Email validation failed: invalid format');
       }
     }
 
     // Phone validation
+    console.log('Validating phone...');
     if (!formData.phone.trim()) {
       newErrors.phone = 'Phone number is required';
       isValid = false;
+      console.log('Phone validation failed');
     } else {
       const phoneRegex = /^[0-9]{10}$/;
       if (!phoneRegex.test(formData.phone)) {
         newErrors.phone = 'Please enter a valid 10-digit phone number';
         isValid = false;
+        console.log('Phone validation failed: invalid format');
       }
     }
 
-    // Date of birth validation
-    if (!formData.dob) {
-      newErrors.dob = 'Date of birth is required';
+    // Gender validation
+    console.log('Validating gender...');
+    if (!formData.gender) {
+      newErrors.gender = 'Gender is required';
       isValid = false;
+      console.log('Gender validation failed');
+    }
+
+    // Date of birth validation
+    console.log('Validating dob (should be removed)...');
+    if (!formData.dob) {
+      // Assuming dob was removed or is optional, this block might not be relevant anymore
+      // newErrors.dob = 'Date of birth is required';
+      // isValid = false;
+      // console.log('DOB validation failed');
     } else {
       const dobDate = new Date(formData.dob);
       const today = new Date();
@@ -180,66 +204,84 @@ const RegistrationForm: React.FC = () => {
       if (age < 5) {
         newErrors.dob = 'Member must be at least 5 years old to register';
         isValid = false;
+        console.log('DOB validation failed: too young');
       } else if (age > 100) {
         newErrors.dob = 'Please enter a valid date of birth';
         isValid = false;
+        console.log('DOB validation failed: too old');
       }
     }
 
     // Photo validation
-    if (!formData.photo) {
-      newErrors.photo = 'Please upload a photo';
-      isValid = false;
-    } else if (formData.photo instanceof File) {
+    console.log('Validating photo (if uploaded)...');
+    if (formData.photo instanceof File) {
+      console.log('Photo is a File, checking size and type...');
       const fileSize = formData.photo.size / (1024 * 1024); // Convert to MB
-      if (fileSize > 2) {
-        newErrors.photo = 'Photo size must be less than 2MB';
+      if (fileSize > 10) {
+        newErrors.photo = 'Photo size must be less than 10MB';
         isValid = false;
+        console.log('Photo validation failed: size');
       }
 
       const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
       if (!allowedTypes.includes(formData.photo.type)) {
         newErrors.photo = 'Please upload a valid image file (JPG, JPEG, or PNG)';
         isValid = false;
+        console.log('Photo validation failed: type');
       }
     }
 
     setErrors(newErrors);
+    console.log('validateForm finished, isValid:', isValid, 'errors:', newErrors);
     return isValid;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('handleSubmit started');
     e.preventDefault();
     
     // Validate form before submission
+    console.log('Calling validateForm...');
     if (!validateForm()) {
+      console.log('validateForm returned false, showing toast');
       toast.error('Please fix the errors in the form');
+      console.log('handleSubmit stopping due to validation errors');
       return;
     }
     
+    console.log('Validation successful, proceeding with submission');
     setIsLoading(true);
+    console.log('isLoading set to true');
     
     try {
+      console.log('Creating FormData object');
       const formDataToSend = new FormData();
       
       // Add all form fields to FormData
+      console.log('Appending form data to FormData object');
       Object.keys(formData).forEach(key => {
         // Special handling for photo
         if (key === 'photo' && formData[key] instanceof File) {
           formDataToSend.append('photo', formData[key] as File);
+          console.log(`Appended photo: ${key}`);
         } else {
           formDataToSend.append(key, String(formData[key]));
+          console.log(`Appended field: ${key}`);
         }
       });
 
+      console.log('Making fetch request to API');
       const response = await fetch(`${API_BASE_URL}/api/users/register`, {
         method: 'POST',
         body: formDataToSend,
       });
 
+      console.log('Received response from API', response);
       const data = await response.json();
+      console.log('Received data from API', data);
 
       if (!response.ok) {
+        console.log('API response not ok', response.status, data);
         // Handle specific error cases
         if (response.status === 400) {
           if (data.message.includes('Email already exists')) {
@@ -375,21 +417,18 @@ const RegistrationForm: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700">Date of Birth</label>
-              <input
-                type="date"
-                className={`mt-1 block w-full px-4 py-3 rounded-lg border-2 shadow-sm focus:ring-2 focus:ring-yellow-200 transition-all duration-200 ${
-                  errors.dob ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-yellow-500'
-                }`}
-                value={formData.dob}
-                onChange={(e) => {
-                  setFormData({ ...formData, dob: e.target.value });
-                  if (errors.dob) {
-                    setErrors({ ...errors, dob: undefined });
-                  }
-                }}
-              />
-              {errors.dob && <p className="mt-1 text-sm text-red-600">{errors.dob}</p>}
+              <label className="block text-sm font-semibold text-gray-700">Gender</label>
+              <select
+                className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition-all duration-200"
+                value={formData.gender}
+                onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Male' | 'Female' | 'Other' | '' })}
+              >
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+              {errors.gender && <p className="mt-1 text-sm text-red-600">{errors.gender}</p>}
             </div>
           </div>
 
@@ -424,7 +463,7 @@ const RegistrationForm: React.FC = () => {
               </div>
               <div className="text-sm text-gray-500">
                 Click to upload or drag and drop<br />
-                PNG, JPG up to 2MB
+                PNG, JPG up to 10MB
                 {errors.photo && (
                   <p className="mt-1 text-red-600 font-medium">{errors.photo}</p>
                 )}
@@ -453,8 +492,19 @@ const RegistrationForm: React.FC = () => {
               <input
                 type="date"
                 value={formData.startDate}
-                disabled
-                className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm bg-gray-50"
+                onChange={(e) => {
+                  const newStartDate = e.target.value;
+                  const selectedPlanOption = plans.find(plan => plan.id === selectedPlan);
+                  if (selectedPlanOption) {
+                    const endDate = addMonths(new Date(newStartDate), selectedPlanOption.months);
+                    setFormData(prev => ({
+                      ...prev,
+                      startDate: newStartDate,
+                      endDate: endDate.toISOString().split('T')[0],
+                    }));
+                  }
+                }}
+                className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition-all duration-200"
               />
             </div>
 
@@ -463,7 +513,7 @@ const RegistrationForm: React.FC = () => {
               <input
                 type="date"
                 value={formData.endDate}
-                disabled
+                disabled // Keep end date disabled as it's auto-calculated
                 className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm bg-gray-50"
               />
             </div>
