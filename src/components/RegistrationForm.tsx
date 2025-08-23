@@ -10,7 +10,6 @@ interface FormData {
   email: string;
   phone: string;
   gender: 'Male' | 'Female' | 'Other' | '';
-  dob: string;
   photo: File | null;
   plan: '1month' | '2month' | '3month' | '6month' | 'yearly';
   startDate: string;
@@ -24,7 +23,6 @@ interface FormErrors {
   email?: string;
   phone?: string;
   gender?: string;
-  dob?: string;
   photo?: string;
   [key: string]: string | undefined;
 }
@@ -71,16 +69,42 @@ const plans: PlanOption[] = [
 
 const RegistrationForm: React.FC = () => {
   const navigate = useNavigate();
+
+  // Helper function to format date as YYYY-MM-DD
+  const formatDate = (date: Date): string => {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      return formatDate(new Date()); // Return today's date if invalid
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Helper function to parse date string to Date object
+  const parseDate = (dateString: string): Date => {
+    try {
+      const [year, month, day] = dateString.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid date');
+      }
+      return date;
+    } catch (error) {
+      console.error('Error parsing date:', error);
+      return new Date(); // Return today's date if parsing fails
+    }
+  };
+
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
     phone: '',
     gender: '',
-    dob: '',
     photo: null,
     plan: '1month',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: addMonths(new Date(), 1).toISOString().split('T')[0],
+    startDate: formatDate(new Date()),
+    endDate: formatDate(addMonths(new Date(), 1)),
     paymentMethod: 'online',
   });
 
@@ -118,15 +142,46 @@ const RegistrationForm: React.FC = () => {
   };
 
   const handlePlanSelect = (plan: PlanOption) => {
-    const startDate = new Date(formData.startDate); // Use current start date from state
-    const endDate = addMonths(startDate, plan.months);
-    setSelectedPlan(plan.id);
-    setFormData(prev => ({
-      ...prev,
-      plan: plan.id,
-      // startDate is not updated here, user controls it
-      endDate: endDate.toISOString().split('T')[0]
-    }));
+    try {
+      const startDate = parseDate(formData.startDate);
+      if (!isNaN(startDate.getTime())) {
+        const endDate = addMonths(startDate, plan.months);
+        setSelectedPlan(plan.id);
+        setFormData(prev => ({
+          ...prev,
+          plan: plan.id,
+          endDate: formatDate(endDate)
+        }));
+      } else {
+        toast.error('Please select a valid start date');
+      }
+    } catch (error) {
+      console.error('Error handling plan selection:', error);
+      toast.error('Please select a valid start date');
+    }
+  };
+
+  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newStartDate = e.target.value;
+    try {
+      const selectedPlanOption = plans.find(plan => plan.id === selectedPlan);
+      if (selectedPlanOption) {
+        const startDate = parseDate(newStartDate);
+        if (!isNaN(startDate.getTime())) {
+          const endDate = addMonths(startDate, selectedPlanOption.months);
+          setFormData(prev => ({
+            ...prev,
+            startDate: newStartDate,
+            endDate: formatDate(endDate)
+          }));
+        } else {
+          toast.error('Please select a valid start date');
+        }
+      }
+    } catch (error) {
+      console.error('Error handling start date change:', error);
+      toast.error('Please select a valid start date');
+    }
   };
 
   const validateForm = (): boolean => {
@@ -182,34 +237,6 @@ const RegistrationForm: React.FC = () => {
       newErrors.gender = 'Gender is required';
       isValid = false;
       console.log('Gender validation failed');
-    }
-
-    // Date of birth validation
-    console.log('Validating dob (should be removed)...');
-    if (!formData.dob) {
-      // Assuming dob was removed or is optional, this block might not be relevant anymore
-      // newErrors.dob = 'Date of birth is required';
-      // isValid = false;
-      // console.log('DOB validation failed');
-    } else {
-      const dobDate = new Date(formData.dob);
-      const today = new Date();
-      let age = today.getFullYear() - dobDate.getFullYear();
-      const monthDiff = today.getMonth() - dobDate.getMonth();
-      
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
-        age--;
-      }
-
-      if (age < 5) {
-        newErrors.dob = 'Member must be at least 5 years old to register';
-        isValid = false;
-        console.log('DOB validation failed: too young');
-      } else if (age > 100) {
-        newErrors.dob = 'Please enter a valid date of birth';
-        isValid = false;
-        console.log('DOB validation failed: too old');
-      }
     }
 
     // Photo validation
@@ -284,11 +311,11 @@ const RegistrationForm: React.FC = () => {
         console.log('API response not ok', response.status, data);
         // Handle specific error cases
         if (response.status === 400) {
-          if (data.message.includes('Email already exists')) {
+          if (data.field === 'email') {
             setErrors(prev => ({ ...prev, email: 'This email is already registered' }));
             toast.error('This email is already registered. Please use a different email.');
             return;
-          } else if (data.message.includes('phone')) {
+          } else if (data.field === 'phone') {
             setErrors(prev => ({ ...prev, phone: 'This phone number is already registered' }));
             toast.error('This phone number is already registered. Please use a different phone number.');
             return;
@@ -492,18 +519,7 @@ const RegistrationForm: React.FC = () => {
               <input
                 type="date"
                 value={formData.startDate}
-                onChange={(e) => {
-                  const newStartDate = e.target.value;
-                  const selectedPlanOption = plans.find(plan => plan.id === selectedPlan);
-                  if (selectedPlanOption) {
-                    const endDate = addMonths(new Date(newStartDate), selectedPlanOption.months);
-                    setFormData(prev => ({
-                      ...prev,
-                      startDate: newStartDate,
-                      endDate: endDate.toISOString().split('T')[0],
-                    }));
-                  }
-                }}
+                onChange={handleStartDateChange}
                 className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition-all duration-200"
               />
             </div>
