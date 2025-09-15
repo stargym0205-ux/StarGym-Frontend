@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Dumbbell, Calendar, CreditCard } from 'lucide-react';
+import { Dumbbell, Calendar, CreditCard, Loader2 } from 'lucide-react';
 import RegistrationForm from './components/RegistrationForm';
 import AdminPanel from './components/AdminPanel';
 import AdminLogin from './components/AdminLogin';
@@ -19,18 +19,18 @@ function NavBar({ isAdminLoggedIn, onLogout }: { isAdminLoggedIn: boolean; onLog
   const isAdminRoute = location.pathname.startsWith('/admin');
 
   return (
-    <nav className="bg-black bg-opacity-50 p-4">
-      <div className="container mx-auto flex justify-between items-center">
-        <div className="flex items-center space-x-2">
+    <nav className="p-4">
+      <div className="container mx-auto panel-glass flex justify-between items-center">
+        <div className="flex items-center space-x-2 px-4 py-2">
           <Dumbbell className="text-yellow-500 animate-bounce" size={24} />
-          <span className="text-white text-2xl font-bold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent hover:scale-105 transition-transform duration-300 cursor-default">
+          <span className="text-2xl font-bold accent-text hover:scale-105 transition-transform duration-300 cursor-default">
             Gold Gym
           </span>
         </div>
         {isAdminLoggedIn && isAdminRoute && (
           <button
             onClick={onLogout}
-            className="px-4 py-2 bg-yellow-500 text-black rounded-md hover:bg-yellow-400 transition-colors"
+            className="px-4 py-2 btn-primary m-2"
           >
             Logout
           </button>
@@ -42,28 +42,28 @@ function NavBar({ isAdminLoggedIn, onLogout }: { isAdminLoggedIn: boolean; onLog
 
 function Footer() {
   return (
-    <footer className="bg-black bg-opacity-50 text-white py-6 mt-auto">
+    <footer className="text-white py-6 mt-auto">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="panel-glass grid grid-cols-1 md:grid-cols-3 gap-8 p-6">
           <div>
             <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <Calendar className="mr-2" size={20} /> Opening Hours
+              <Calendar className="mr-2 text-yellow-500" size={20} /> Opening Hours
             </h3>
-            <p>Monday - Saturday</p>
-            <p>Morning: 6:00 AM - 9:00 AM</p>
-            <p>Evening: 4:00 PM - 9:00 PM</p>
+            <p className="text-gray-200">Monday - Saturday</p>
+            <p className="text-gray-200">Morning: 6:00 AM - 9:00 AM</p>
+            <p className="text-gray-200">Evening: 4:00 PM - 9:00 PM</p>
           </div>
           <div>
             <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <CreditCard className="mr-2" size={20} /> Payment Methods
+              <CreditCard className="mr-2 text-yellow-500" size={20} /> Payment Methods
             </h3>
-            <p>Cash</p>
-            <p>Online Payment</p>
+            <p className="text-gray-200">Cash</p>
+            <p className="text-gray-200">Online Payment</p>
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
-            <p>Email: admin@gmail.com</p>
-            <p>Phone: 9101321032</p>
+            <h3 className="text-lg font-semibold mb-4 accent-text">Contact Us</h3>
+            <p className="text-gray-200">Email: admin@gmail.com</p>
+            <p className="text-gray-200">Phone: 9101321032</p>
           </div>
         </div>
       </div>
@@ -109,7 +109,14 @@ function App() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen text-white text-xl">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen text-white">
+        <span className="inline-flex items-center gap-3 text-xl">
+          <Loader2 className="w-6 h-6 animate-spin text-yellow-500" />
+          Loading...
+        </span>
+      </div>
+    );
   }
 
   return (

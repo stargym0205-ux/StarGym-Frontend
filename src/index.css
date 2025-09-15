@@ -7,10 +7,30 @@ body {
   padding: 0;
   min-height: 100vh;
   background: linear-gradient(to bottom right, #111827, #1f2937);
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
 }
 
 #root {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Theme utilities */
+@layer components {
+  .btn-primary {
+    @apply bg-yellow-500 hover:bg-yellow-400 active:bg-yellow-500 text-black font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200;
+  }
+  .btn-secondary {
+    @apply bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors duration-200;
+  }
+  .panel-glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/10 shadow-xl rounded-xl;
+  }
+  .panel-card {
+    @apply bg-white rounded-xl shadow-2xl border border-gray-100;
+  }
+  .accent-text {
+    @apply bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent;
+  }
 }

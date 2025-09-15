@@ -38,6 +38,19 @@ interface User {
   }[];
 }
 
+interface MembershipEntry {
+  type: 'join' | 'renewal';
+  date: string;
+  duration: string;
+  amount: number;
+  paymentMode: string;
+  plan: string;
+  paymentStatus: string;
+  transactionId?: string;
+  notes?: string;
+  userId: string;
+}
+
 const AdminPanel: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState('members');
@@ -55,6 +68,7 @@ const AdminPanel: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState<{ [key: string]: boolean }>({});
   const [activeSidebarSection, setActiveSidebarSection] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [membershipEntries, setMembershipEntries] = useState<MembershipEntry[]>([]);
   const navigate = useNavigate();
 
   const currentYear = new Date().getFullYear();
@@ -92,6 +106,47 @@ const AdminPanel: React.FC = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Load confirmed membership history entries for all users
+  useEffect(() => {
+    const loadAllMembershipEntries = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const allEntries: MembershipEntry[] = [];
+        await Promise.all(
+          users.map(async (u) => {
+            try {
+              const res = await fetch(`${API_BASE_URL}/api/users/${u._id}/membership-history`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              if (!res.ok) return;
+              const data = await res.json();
+              const entries = (data?.data?.membershipHistory || []) as any[];
+              entries.forEach((e) => {
+                if (e && e.paymentStatus === 'confirmed') {
+                  allEntries.push({ ...e, userId: u._id });
+                }
+              });
+            } catch (_) {
+              // ignore per-user fetch errors
+            }
+          })
+        );
+        setMembershipEntries(allEntries);
+      } catch (_) {
+        // ignore
+      }
+    };
+    if (users.length > 0) {
+      loadAllMembershipEntries();
+    } else {
+      setMembershipEntries([]);
+    }
+  }, [users]);
 
   const filteredUsers = () => {
     let filtered = [...users];
@@ -273,50 +328,12 @@ const AdminPanel: React.FC = () => {
   };
 
   const calculateMonthlyRevenue = (month: number, year: number) => {
-    let total = 0;
-    
-    users
-      .filter(user => user.paymentStatus === 'confirmed')
-      .forEach(user => {
-        // Use originalJoinDate for initial membership revenue
-        const joinDate = user.originalJoinDate ? new Date(user.originalJoinDate) : new Date(user.startDate);
-        const planDuration = getPlanDurationInMonths(user.plan);
-        const monthlyAmount = getPlanAmount(user.plan) / planDuration;
-
-        // Calculate revenue for initial membership
-        if (joinDate.getFullYear() === year) {
-          const startMonth = joinDate.getMonth();
-          const endMonth = Math.min(startMonth + planDuration - 1, 11);
-          
-          // If the target month falls within the plan duration
-          if (month >= startMonth && month <= endMonth) {
-            total += monthlyAmount || 0;
-          }
-        }
-
-        // Handle renewals separately
-        if (user.renewals) {
-          user.renewals.forEach(renewal => {
-            const renewalStartDate = new Date(renewal.startDate);
-            const renewalDuration = getPlanDurationInMonths(renewal.plan);
-            const renewalMonthlyAmount = (renewal.newAmount || 0) / renewalDuration;
-
-            // Only consider renewals that start in the target year
-            if (renewalStartDate.getFullYear() === year) {
-              const startMonth = renewalStartDate.getMonth();
-              const endMonth = Math.min(startMonth + renewalDuration - 1, 11);
-              
-              // If the target month falls within the renewal duration
-              if (month >= startMonth && month <= endMonth) {
-                // Add renewal revenue without affecting original revenue
-                total += renewalMonthlyAmount || 0;
-              }
-            }
-          });
-        }
-      });
-
-    return total || 0;
+    return membershipEntries
+      .filter((e) => {
+        const d = new Date(e.date);
+        return d.getFullYear() === year && d.getMonth() === month && e.paymentStatus === 'confirmed';
+      })
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
   };
 
   const calculateMonthlyRevenueBreakdown = (year: number) => {
@@ -335,48 +352,12 @@ const AdminPanel: React.FC = () => {
   };
 
   const calculateYearlyRevenue = (year: number) => {
-    let total = 0;
-    
-    users
-      .filter(user => user.paymentStatus === 'confirmed')
-      .forEach(user => {
-        const userStartDate = new Date(user.startDate);
-        const planDuration = getPlanDurationInMonths(user.plan);
-        const monthlyAmount = getPlanAmount(user.plan) / planDuration;
-
-        // Calculate revenue for initial membership
-        if (userStartDate.getFullYear() === year) {
-          const startMonth = userStartDate.getMonth();
-          const endMonth = Math.min(startMonth + planDuration - 1, 11);
-          
-          // Add revenue for each month in the plan duration
-          for (let month = startMonth; month <= endMonth; month++) {
-            total += monthlyAmount || 0;
-          }
-        }
-
-        // Handle renewals
-        if (user.renewals) {
-          user.renewals.forEach(renewal => {
-            const renewalStartDate = new Date(renewal.startDate);
-            const renewalDuration = getPlanDurationInMonths(renewal.plan);
-            const renewalMonthlyAmount = (renewal.newAmount || 0) / renewalDuration;
-
-            // Only consider renewals that start in the target year
-            if (renewalStartDate.getFullYear() === year) {
-              const startMonth = renewalStartDate.getMonth();
-              const endMonth = Math.min(startMonth + renewalDuration - 1, 11);
-              
-              // Add revenue for each month in the renewal duration
-              for (let month = startMonth; month <= endMonth; month++) {
-                total += renewalMonthlyAmount || 0;
-              }
-            }
-          });
-        }
-      });
-
-    return total || 0;
+    return membershipEntries
+      .filter((e) => {
+        const d = new Date(e.date);
+        return d.getFullYear() === year && e.paymentStatus === 'confirmed';
+      })
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
   };
 
   const calculateRevenueByPlan = () => {
@@ -387,118 +368,30 @@ const AdminPanel: React.FC = () => {
       '6month': 0,
       'yearly': 0
     };
-
-    users
-      .filter(user => user.paymentStatus === 'confirmed')
-      .forEach(user => {
-        // Add initial subscription amount
-        planRevenue[user.plan] = (planRevenue[user.plan] || 0) + getPlanAmount(user.plan);
-
-        // Handle renewals
-        if (user.renewals) {
-          user.renewals.forEach(renewal => {
-            if (renewal.plan) {
-              planRevenue[renewal.plan] = (planRevenue[renewal.plan] || 0) + renewal.newAmount;
-            }
-          });
-        }
+    membershipEntries
+      .filter((e) => e.paymentStatus === 'confirmed')
+      .forEach((e) => {
+        planRevenue[e.plan] = (planRevenue[e.plan] || 0) + (e.amount || 0);
       });
-
     return planRevenue;
   };
 
   const calculateTotalCashRevenue = (month: number, year: number) => {
-    let total = 0;
-    
-    users
-      .filter(user => user.paymentMethod === 'cash' && user.paymentStatus === 'confirmed')
-      .forEach(user => {
-        const userStartDate = new Date(user.startDate);
-        const planDuration = getPlanDurationInMonths(user.plan);
-        const monthlyAmount = getPlanAmount(user.plan) / planDuration;
-
-        // Calculate revenue for initial membership
-        if (userStartDate.getFullYear() === year) {
-          const startMonth = userStartDate.getMonth();
-          const endMonth = Math.min(startMonth + planDuration - 1, 11);
-          
-          // If the target month falls within the plan duration
-          if (month >= startMonth && month <= endMonth) {
-            total += monthlyAmount || 0;
-          }
-        }
-
-        // Handle renewals
-        if (user.renewals) {
-          user.renewals.forEach(renewal => {
-            if (renewal.paymentMethod === 'cash') {
-              const renewalStartDate = new Date(renewal.startDate);
-              const renewalDuration = getPlanDurationInMonths(renewal.plan);
-              const renewalMonthlyAmount = (renewal.newAmount || 0) / renewalDuration;
-
-              // Only consider renewals that start in the target year
-              if (renewalStartDate.getFullYear() === year) {
-                const startMonth = renewalStartDate.getMonth();
-                const endMonth = Math.min(startMonth + renewalDuration - 1, 11);
-                
-                // If the target month falls within the renewal duration
-                if (month >= startMonth && month <= endMonth) {
-                  total += renewalMonthlyAmount || 0;
-                }
-              }
-            }
-          });
-        }
-      });
-
-    return total || 0;
+    return membershipEntries
+      .filter((e) => {
+        const d = new Date(e.date);
+        return d.getFullYear() === year && d.getMonth() === month && e.paymentStatus === 'confirmed' && e.paymentMode === 'cash';
+      })
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
   };
 
   const calculateTotalOnlineRevenue = (month: number, year: number) => {
-    let total = 0;
-    
-    users
-      .filter(user => user.paymentMethod === 'online' && user.paymentStatus === 'confirmed')
-      .forEach(user => {
-        const userStartDate = new Date(user.startDate);
-        const planDuration = getPlanDurationInMonths(user.plan);
-        const monthlyAmount = getPlanAmount(user.plan) / planDuration;
-
-        // Calculate revenue for initial membership
-        if (userStartDate.getFullYear() === year) {
-          const startMonth = userStartDate.getMonth();
-          const endMonth = Math.min(startMonth + planDuration - 1, 11);
-          
-          // If the target month falls within the plan duration
-          if (month >= startMonth && month <= endMonth) {
-            total += monthlyAmount || 0;
-          }
-        }
-
-        // Handle renewals
-        if (user.renewals) {
-          user.renewals.forEach(renewal => {
-            if (renewal.paymentMethod === 'online') {
-              const renewalStartDate = new Date(renewal.startDate);
-              const renewalDuration = getPlanDurationInMonths(renewal.plan);
-              const renewalMonthlyAmount = (renewal.newAmount || 0) / renewalDuration;
-
-              // Only consider renewals that start in the target year
-              if (renewalStartDate.getFullYear() === year) {
-                const startMonth = renewalStartDate.getMonth();
-                const endMonth = Math.min(startMonth + renewalDuration - 1, 11);
-                
-                // If the target month falls within the renewal duration
-                if (month >= startMonth && month <= endMonth) {
-                  total += renewalMonthlyAmount || 0;
-                }
-              }
-            }
-          });
-        }
-      });
-
-    return total || 0;
+    return membershipEntries
+      .filter((e) => {
+        const d = new Date(e.date);
+        return d.getFullYear() === year && d.getMonth() === month && e.paymentStatus === 'confirmed' && e.paymentMode === 'online';
+      })
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
   };
 
   const formatCurrency = (amount: number) => {
@@ -1070,59 +963,7 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  // Helper function to get plan duration in months
-  const getPlanDurationInMonths = (plan: string): number => {
-    switch (plan) {
-      case '1month':
-        return 1;
-      case '2month':
-        return 2;
-      case '3month':
-        return 3;
-      case '6month':
-        return 6;
-      case 'yearly':
-        return 12;
-      default:
-        return 1;
-    }
-  };
-
-  // Add this new function to store monthly revenue data
-  const storeMonthlyRevenue = async (userId: string, monthlyData: {
-    month: number;
-    year: number;
-    amount: number;
-    isRenewal: boolean;
-    plan: string;
-    startDate: string;
-  }) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/users/${userId}/revenue`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(monthlyData)
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to store monthly revenue');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error storing monthly revenue:', error);
-      throw error;
-    }
-  };
+  // Revenue helpers removed; revenue is computed from confirmed membership history entries only
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -1349,7 +1190,7 @@ const AdminPanel: React.FC = () => {
 
           {activeSidebarSection === 'members' && (
             <div className="bg-white rounded-lg shadow-xl p-4 md:p-6">
-              <h2 className="text-2xl font-bold mb-6">Members Management</h2>
+              <h2 className="text-2xl font-bold mb-6 accent-text">Members Management</h2>
               {/* Search Bar */}
               <div className="mb-6 flex flex-col sm:flex-row items-center gap-3">
                 <input
@@ -1357,7 +1198,7 @@ const AdminPanel: React.FC = () => {
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   placeholder="Search by name, email, or phone..."
-                  className="w-full sm:w-80 px-4 py-2 rounded-lg border border-gray-300 shadow-sm focus:ring-yellow-500 focus:border-yellow-500 transition-all"
+                  className="w-full sm:w-80 px-4 py-2 rounded-lg border-2 border-gray-200 shadow-sm focus:ring-2 focus:ring-yellow-300 focus:border-yellow-500 transition-all"
                 />
               </div>
               <div className="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-2">
@@ -1447,7 +1288,7 @@ const AdminPanel: React.FC = () => {
                 <button
                   onClick={fetchUsers}
                   disabled={isRefreshing}
-                  className={`px-3 py-1.5 text-sm rounded-md bg-blue-500 text-white hover:bg-blue-600 flex items-center ${
+                  className={`px-3 py-1.5 text-sm rounded-md btn-primary flex items-center ${
                     isRefreshing ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
@@ -1520,7 +1361,7 @@ const AdminPanel: React.FC = () => {
                           <button
                             onClick={() => approvePayment(user._id)}
                             disabled={loadingStates[user._id]}
-                            className={`text-xs bg-green-500 text-white px-2 py-1 rounded flex items-center gap-2 ${
+                            className={`text-xs btn-primary px-2 py-1 rounded flex items-center gap-2 ${
                               loadingStates[user._id] ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                           >
@@ -1555,7 +1396,7 @@ const AdminPanel: React.FC = () => {
                         )}
                         <button
                           onClick={() => setSelectedUser(user)}
-                          className="text-xs bg-blue-500 text-white px-2 py-1 rounded flex items-center hover:bg-blue-600 transition-colors duration-200"
+                          className="text-xs btn-primary px-2 py-1 rounded flex items-center transition-colors duration-200"
                         >
                           <Eye className="w-3 h-3 mr-1" />
                           View
@@ -1565,7 +1406,7 @@ const AdminPanel: React.FC = () => {
                             setEditingUser(user);
                             setIsEditing(true);
                           }}
-                          className="text-xs bg-green-500 text-white px-2 py-1 rounded flex items-center"
+                          className="text-xs btn-primary px-2 py-1 rounded flex items-center"
                         >
                           <Edit className="w-3 h-3 mr-1" />
                           Edit
@@ -1573,7 +1414,7 @@ const AdminPanel: React.FC = () => {
                         <button
                           onClick={() => deleteMember(user._id)}
                           disabled={isDeleting[user._id]}
-                          className={`text-xs bg-red-500 text-white px-2 py-1 rounded flex items-center gap-2 ${
+                          className={`text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded flex items-center gap-2 transition-colors duration-200 ${
                             isDeleting[user._id] ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                         >

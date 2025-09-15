@@ -354,7 +354,7 @@ const RegistrationForm: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-3xl font-bold text-center text-white mb-8">Choose Your Plan</h2>
+      <h2 className="text-3xl font-bold text-center accent-text mb-8">Choose Your Plan</h2>
       
       {/* Price Selection Section */}
       <div className="mb-8">
@@ -364,15 +364,15 @@ const RegistrationForm: React.FC = () => {
             <button
               key={plan.id}
               onClick={() => handlePlanSelect(plan)}
-              className={`p-4 rounded-xl transition-all duration-300 transform hover:scale-105 ${
+              className={`p-4 rounded-xl transition-all duration-300 transform hover:scale-105 focus:ring-2 focus:ring-yellow-300 focus:outline-none ${
                 selectedPlan === plan.id
-                  ? 'bg-yellow-500 text-white shadow-lg'
-                  : 'bg-white hover:bg-gray-50 shadow-md'
+                  ? 'bg-yellow-500 text-black shadow-lg'
+                  : 'panel-card hover:bg-gray-50'
               }`}
             >
               <div className="text-lg font-bold mb-2">{plan.name}</div>
               <div className={`text-2xl font-bold ${
-                selectedPlan === plan.id ? 'text-white' : 'text-yellow-500'
+                selectedPlan === plan.id ? 'text-black' : 'text-yellow-500'
               }`}>
                 {formatPrice(plan.price)}
               </div>
@@ -382,7 +382,7 @@ const RegistrationForm: React.FC = () => {
       </div>
 
       {/* Registration Form */}
-      <div className="bg-white rounded-xl shadow-2xl p-8 transform transition-all hover:scale-[1.01]">
+      <div className="panel-card p-8 transform transition-all hover:scale-[1.01]">
         <h3 className="text-2xl font-bold mb-6 text-gray-800">Personal Information</h3>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -390,7 +390,7 @@ const RegistrationForm: React.FC = () => {
               <label className="block text-sm font-semibold text-gray-700">Name</label>
               <input
                 type="text"
-                className={`mt-1 block w-full px-4 py-3 rounded-lg border-2 shadow-sm focus:ring-2 focus:ring-yellow-200 transition-all duration-200 ${
+                className={`mt-1 block w-full px-4 py-3 rounded-lg border-2 shadow-sm focus:ring-2 focus:ring-yellow-300 transition-all duration-200 ${
                   errors.name ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-yellow-500'
                 }`}
                 value={formData.name}
@@ -409,7 +409,7 @@ const RegistrationForm: React.FC = () => {
               <label className="block text-sm font-semibold text-gray-700">Email</label>
               <input
                 type="email"
-                className={`mt-1 block w-full px-4 py-3 rounded-lg border-2 shadow-sm focus:ring-2 focus:ring-yellow-200 transition-all duration-200 ${
+                className={`mt-1 block w-full px-4 py-3 rounded-lg border-2 shadow-sm focus:ring-2 focus:ring-yellow-300 transition-all duration-200 ${
                   errors.email ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-yellow-500'
                 }`}
                 value={formData.email}
@@ -428,7 +428,7 @@ const RegistrationForm: React.FC = () => {
               <label className="block text-sm font-semibold text-gray-700">Phone</label>
               <input
                 type="tel"
-                className={`mt-1 block w-full px-4 py-3 rounded-lg border-2 shadow-sm focus:ring-2 focus:ring-yellow-200 transition-all duration-200 ${
+                className={`mt-1 block w-full px-4 py-3 rounded-lg border-2 shadow-sm focus:ring-2 focus:ring-yellow-300 transition-all duration-200 ${
                   errors.phone ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-yellow-500'
                 }`}
                 value={formData.phone}
@@ -446,7 +446,7 @@ const RegistrationForm: React.FC = () => {
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700">Gender</label>
               <select
-                className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition-all duration-200"
+                className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-300 transition-all duration-200"
                 value={formData.gender}
                 onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Male' | 'Female' | 'Other' | '' })}
               >
@@ -505,7 +505,7 @@ const RegistrationForm: React.FC = () => {
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700">Payment Method</label>
               <select
-                className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition-all duration-200"
+                className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-300 transition-all duration-200"
                 value={formData.paymentMethod}
                 onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as 'cash' | 'online' })}
               >
@@ -520,7 +520,7 @@ const RegistrationForm: React.FC = () => {
                 type="date"
                 value={formData.startDate}
                 onChange={handleStartDateChange}
-                className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition-all duration-200"
+                className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-300 transition-all duration-200"
               />
             </div>
 
@@ -539,10 +539,10 @@ const RegistrationForm: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`px-6 py-3 text-lg font-semibold text-white rounded-lg shadow-lg hover:shadow-xl transform transition-all duration-200 ${
+              className={`px-6 py-3 text-lg font-semibold rounded-lg shadow-lg hover:shadow-xl transform transition-all duration-200 ${
                 isLoading 
-                  ? 'opacity-50 cursor-not-allowed bg-yellow-500' 
-                  : 'bg-yellow-500 hover:bg-yellow-600 hover:-translate-y-0.5'
+                  ? 'opacity-50 cursor-not-allowed btn-primary' 
+                  : 'btn-primary hover:-translate-y-0.5'
               }`}
             >
               {isLoading ? (

@@ -151,12 +151,12 @@ const RenewalForm: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md mx-auto bg-white rounded-lg shadow-xl overflow-hidden">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md mx-auto panel-card overflow-hidden">
         <div className="px-6 py-8">
           <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900 mb-2">Renew Your Membership</h2>
-            <p className="text-gray-600">Welcome back, {userData.name}!</p>
+            <h2 className="text-3xl font-extrabold accent-text mb-2">Renew Your Membership</h2>
+            <p className="text-gray-700">Welcome back, {userData.name}!</p>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-6">
@@ -168,10 +168,10 @@ const RenewalForm: React.FC = () => {
                     <div
                       key={plan.id}
                       onClick={() => handlePlanChange(plan.id)}
-                      className={`relative rounded-lg border p-4 cursor-pointer transition-all duration-200 ${
+                      className={`relative rounded-lg border p-4 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 ${
                         formData.plan === plan.id
-                          ? 'border-yellow-500 bg-yellow-50'
-                          : 'border-gray-300 hover:border-yellow-400'
+                          ? 'border-yellow-500 bg-yellow-100'
+                          : 'border-gray-200 hover:border-yellow-400 bg-white'
                       }`}
                     >
                       <div className="flex justify-between items-center">
@@ -201,7 +201,7 @@ const RenewalForm: React.FC = () => {
                 <select
                   value={formData.paymentMethod}
                   onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value as 'cash' | 'online' })}
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm rounded-md"
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-2 border-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-300 focus:border-yellow-500 sm:text-sm rounded-md"
                 >
                   <option value="online">Online Payment</option>
                   <option value="cash">Cash Payment</option>
@@ -213,7 +213,7 @@ const RenewalForm: React.FC = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex justify-center py-3 px-4 rounded-md shadow-sm text-sm font-medium btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
