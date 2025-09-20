@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, CreditCard, CheckCircle, Eye, Edit, Trash, Bell, LayoutDashboard, RefreshCw, BarChart2, Settings, Menu, X, LogOut, Loader2 } from 'lucide-react';
+import { Users, Calendar, CreditCard, CheckCircle, Eye, Edit, Trash, Bell, LayoutDashboard, RefreshCw, BarChart2, Settings, X, LogOut, Loader2, ChevronRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { API_BASE_URL } from '../App';
 import { useNavigate } from 'react-router-dom';
@@ -69,6 +69,12 @@ const AdminPanel: React.FC = () => {
   const [activeSidebarSection, setActiveSidebarSection] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [membershipEntries, setMembershipEntries] = useState<MembershipEntry[]>([]);
+  const [confirmAction, setConfirmAction] = useState<{
+    visible: boolean;
+    action: 'approve' | 'delete' | null;
+    userId: string | null;
+    message: string;
+  }>({ visible: false, action: null, userId: null, message: '' });
   const navigate = useNavigate();
 
   const currentYear = new Date().getFullYear();
@@ -214,10 +220,6 @@ const AdminPanel: React.FC = () => {
   };
 
   const approvePayment = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to approve this payment?')) {
-      return;
-    }
-
     try {
       setLoadingStates(prev => ({ ...prev, [userId]: true }));
       const token = localStorage.getItem('token');
@@ -270,6 +272,25 @@ const AdminPanel: React.FC = () => {
     } finally {
       setLoadingStates(prev => ({ ...prev, [userId]: false }));
     }
+  };
+
+  const showConfirm = (action: 'approve' | 'delete', userId: string, message: string) => {
+    setConfirmAction({ visible: true, action, userId, message });
+  };
+
+  const handleConfirmProceed = async () => {
+    if (!confirmAction.action || !confirmAction.userId) return;
+    const { action, userId } = confirmAction;
+    setConfirmAction(prev => ({ ...prev, visible: false }));
+    if (action === 'approve') {
+      await approvePayment(userId);
+    } else if (action === 'delete') {
+      await deleteMember(userId);
+    }
+  };
+
+  const handleConfirmCancel = () => {
+    setConfirmAction({ visible: false, action: null, userId: null, message: '' });
   };
 
   const notifyExpiredMember = async (userId: string, userEmail: string, userName: string) => {
@@ -413,10 +434,6 @@ const AdminPanel: React.FC = () => {
   };
 
   const deleteMember = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to delete this member?')) {
-      return;
-    }
-
     try {
       setIsDeleting(prev => ({ ...prev, [userId]: true }));
       const token = localStorage.getItem('token');
@@ -844,10 +861,6 @@ const AdminPanel: React.FC = () => {
   };
 
   const handleRenewalApproval = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to approve this renewal?')) {
-      return;
-    }
-
     try {
       setLoadingStates(prev => ({ ...prev, [userId]: true }));
       const token = localStorage.getItem('token');
@@ -905,10 +918,6 @@ const AdminPanel: React.FC = () => {
   };
 
   const handleRenewalRejection = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to reject this renewal request?')) {
-      return;
-    }
-
     try {
       setLoadingStates(prev => ({ ...prev, [userId]: true }));
       const token = localStorage.getItem('token');
@@ -966,23 +975,32 @@ const AdminPanel: React.FC = () => {
   // Revenue helpers removed; revenue is computed from confirmed membership history entries only
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-gray-100">
       {/* Mobile Menu Button */}
-      <button
-        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-lg bg-white shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-200 border border-gray-200"
-      >
-        {isSidebarOpen ? (
-          <X className="w-5 h-5 text-gray-700" />
-        ) : (
-          <Menu className="w-5 h-5 text-gray-700" />
-        )}
-      </button>
+      {/* Mobile edge handle instead of floating button */}
+      {!isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          aria-label="Open menu"
+          className="lg:hidden fixed top-1/2 -translate-y-1/2 left-0 z-40 h-12 w-6 bg-yellow-500 text-white shadow-md rounded-r-full flex items-center justify-center active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      )}
+      {isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(false)}
+          aria-label="Close menu"
+          className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-full bg-white text-gray-700 shadow-md hover:bg-gray-100 active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      )}
 
       {/* Sidebar */}
       <div 
-        className={`fixed lg:static inset-y-0 left-0 z-40 w-[260px] bg-white shadow-xl transform transition-all duration-300 ease-in-out ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-[-110%]'
+        className={`fixed lg:static inset-y-0 left-0 z-40 w-[260px] bg-white shadow-xl transform transition-transform duration-300 ease-in-out ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0 lg:w-64`}
         style={{ maxHeight: '100vh' }}
       >
@@ -1112,12 +1130,12 @@ const AdminPanel: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
-        <div className="container mx-auto px-4 py-8 lg:py-8">
+        <div className="container mx-auto px-3 sm:px-4 py-4 lg:py-8">
           {activeSidebarSection === 'dashboard' && (
-            <div className="bg-white rounded-lg shadow-xl p-0 md:p-0 w-full h-full min-h-[calc(100vh-4rem)] flex flex-col">
-              <h2 className="text-2xl font-bold mb-6 px-6 pt-6">Admin Dashboard</h2>
-              <div className="flex-1 px-4 pb-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 h-full">
+            <div className="bg-white rounded-lg shadow-xl p-0 md:p-0 w-full h-full min-h-[calc(100vh-8rem)] md:min-h-[calc(100vh-4rem)] flex flex-col">
+              <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 px-4 md:px-6 pt-4 md:pt-6">Admin Dashboard</h2>
+              <div className="flex-1 px-3 md:px-4 pb-4 md:pb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 h-full">
                   {/* Total Members */}
                   <div className="group bg-blue-50 rounded-2xl shadow-md border border-blue-100 cursor-pointer flex flex-col justify-center items-center p-8 h-full w-full transform transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:bg-blue-100/80 active:scale-100">
                     <Users className="text-blue-500 group-hover:text-blue-700 transition-colors duration-300 mb-2" size={40} />
@@ -1190,18 +1208,18 @@ const AdminPanel: React.FC = () => {
 
           {activeSidebarSection === 'members' && (
             <div className="bg-white rounded-lg shadow-xl p-4 md:p-6">
-              <h2 className="text-2xl font-bold mb-6 accent-text">Members Management</h2>
+              <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-black">Members Management</h2>
               {/* Search Bar */}
-              <div className="mb-6 flex flex-col sm:flex-row items-center gap-3">
+              <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-center gap-3">
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   placeholder="Search by name, email, or phone..."
-                  className="w-full sm:w-80 px-4 py-2 rounded-lg border-2 border-gray-200 shadow-sm focus:ring-2 focus:ring-yellow-300 focus:border-yellow-500 transition-all"
+                  className="w-full sm:w-80 px-3 py-2 rounded-lg border-2 border-gray-200 shadow-sm focus:ring-2 focus:ring-yellow-300 focus:border-yellow-500 transition-all"
                 />
               </div>
-              <div className="flex flex-wrap gap-2 mb-6 overflow-x-auto pb-2">
+              <div className="flex flex-wrap gap-2 mb-4 md:mb-6 overflow-x-auto pb-2">
                 <button
                   className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap ${
                     activeTab === 'all'
@@ -1359,19 +1377,22 @@ const AdminPanel: React.FC = () => {
                       <div className="flex flex-wrap gap-2 mt-3">
                         {user.paymentStatus === 'pending' && (
                           <button
-                            onClick={() => approvePayment(user._id)}
+                            onClick={() => showConfirm('approve', user._id, `Approve payment for ${user.name}?`)}
                             disabled={loadingStates[user._id]}
-                            className={`text-xs btn-primary px-2 py-1 rounded flex items-center gap-2 ${
+                            title="Approve payment"
+                            aria-label="Approve payment"
+                            className={`text-xs btn-primary p-2 rounded-full flex items-center justify-center ${
                               loadingStates[user._id] ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                           >
-                            {loadingStates[user._id] && (
+                            {loadingStates[user._id] ? (
                               <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
+                            ) : (
+                              <CheckCircle className="w-4 h-4" />
                             )}
-                            {loadingStates[user._id] ? 'Approving...' : 'Approve'}
                           </button>
                         )}
                         {isSubscriptionExpired(user.endDate) && (
@@ -1381,50 +1402,58 @@ const AdminPanel: React.FC = () => {
                               setShowNotificationModal(true);
                             }}
                             disabled={isNotifying && selectedUserForNotification?._id === user._id}
-                            className={`text-xs bg-purple-500 text-white px-2 py-1 rounded flex items-center gap-2 ${
+                          title="Notify member"
+                          aria-label="Notify member"
+                          className={`text-xs bg-purple-500 text-white p-2 rounded-full flex items-center justify-center ${
                               isNotifying && selectedUserForNotification?._id === user._id ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                           >
-                            {isNotifying && selectedUserForNotification?._id === user._id && (
+                            {isNotifying && selectedUserForNotification?._id === user._id ? (
                               <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
+                            ) : (
+                              <Bell className="w-4 h-4" />
                             )}
-                            {isNotifying && selectedUserForNotification?._id === user._id ? 'Notifying...' : 'Notify'}
                           </button>
                         )}
                         <button
                           onClick={() => setSelectedUser(user)}
-                          className="text-xs btn-primary px-2 py-1 rounded flex items-center transition-colors duration-200"
+                          title="View"
+                          aria-label="View"
+                          className="text-xs btn-primary p-2 rounded-full flex items-center justify-center transition-colors duration-200"
                         >
-                          <Eye className="w-3 h-3 mr-1" />
-                          View
+                          <Eye className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => {
                             setEditingUser(user);
                             setIsEditing(true);
                           }}
-                          className="text-xs btn-primary px-2 py-1 rounded flex items-center"
+                          title="Edit"
+                          aria-label="Edit"
+                          className="text-xs btn-primary p-2 rounded-full flex items-center justify-center"
                         >
-                          <Edit className="w-3 h-3 mr-1" />
-                          Edit
+                          <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => deleteMember(user._id)}
+                          onClick={() => showConfirm('delete', user._id, `Delete member ${user.name}? This cannot be undone.`)}
                           disabled={isDeleting[user._id]}
-                          className={`text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded flex items-center gap-2 transition-colors duration-200 ${
+                          title="Delete"
+                          aria-label="Delete"
+                          className={`text-xs bg-red-500 hover:bg-red-600 text-white p-2 rounded-full flex items-center justify-center transition-colors duration-200 ${
                             isDeleting[user._id] ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                         >
-                          {isDeleting[user._id] && (
+                          {isDeleting[user._id] ? (
                             <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
+                          ) : (
+                            <Trash className="w-4 h-4" />
                           )}
-                          {isDeleting[user._id] ? 'Deleting...' : 'Delete'}
                         </button>
                       </div>
                     </div>
@@ -1436,22 +1465,22 @@ const AdminPanel: React.FC = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Member
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Plan & Amount
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Payment Method
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Membership Validity
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -1461,7 +1490,7 @@ const AdminPanel: React.FC = () => {
                       <tr key={user._id} className={
                         user.paymentStatus === 'pending' ? 'bg-yellow-50' : ''
                       }>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="h-10 w-10 flex-shrink-0">
                               <img
@@ -1477,18 +1506,18 @@ const AdminPanel: React.FC = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{user.plan}</div>
                           <div className="text-sm text-gray-500">{getPlanAmountDisplay(user.plan)}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             user.paymentMethod === 'online' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
                           }`}>
                             {user.paymentMethod === 'online' ? 'Online Payment' : 'Cash Payment'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             user.paymentStatus === 'confirmed' 
                               ? 'bg-green-100 text-green-800'
@@ -1497,7 +1526,7 @@ const AdminPanel: React.FC = () => {
                             {user.paymentStatus === 'confirmed' ? 'Confirmed' : 'Pending'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                           {(() => {
                             const today = new Date();
                             const endDate = new Date(user.endDate);
@@ -1524,58 +1553,62 @@ const AdminPanel: React.FC = () => {
                             }
                           })()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
                           {user.paymentStatus === 'pending' && (
                             <button
-                              onClick={() => approvePayment(user._id)}
+                              onClick={() => showConfirm('approve', user._id, `Approve payment for ${user.name}?`)}
                               disabled={loadingStates[user._id]}
-                              className={`text-green-600 hover:text-green-900 inline-flex items-center ${
+                              title="Approve payment"
+                              aria-label="Approve payment"
+                              className={`text-green-600 hover:text-green-900 inline-flex items-center justify-center p-2 rounded-full ${
                                 loadingStates[user._id] ? 'opacity-50 cursor-not-allowed' : ''
                               }`}
                             >
                               {loadingStates[user._id] ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
-                                <>
-                                  <CheckCircle className="w-4 h-4 mr-1" />
-                                  Approve Payment
-                                </>
+                                <CheckCircle className="w-4 h-4" />
                               )}
                             </button>
                           )}
                           {isSubscriptionExpired(user.endDate) && (
-                            <button
+                          <button
                               onClick={() => {
                                 setSelectedUserForNotification(user);
                                 setShowNotificationModal(true);
                               }}
-                              className="text-purple-600 hover:text-purple-900 inline-flex items-center"
+                            title="Notify member"
+                            aria-label="Notify member"
+                            className="text-purple-600 hover:text-purple-900 inline-flex items-center justify-center p-2 rounded-full"
                             >
-                              <Bell className="w-4 h-4 mr-1" />
-                              Notify Member
+                            <Bell className="w-4 h-4" />
                             </button>
                           )}
                           <button
                             onClick={() => setSelectedUser(user)}
-                            className="text-blue-600 hover:text-blue-800 inline-flex items-center transition-colors duration-200"
+                            title="View"
+                            aria-label="View"
+                            className="text-blue-600 hover:text-blue-800 inline-flex items-center justify-center p-2 rounded-full transition-colors duration-200"
                           >
-                            <Eye className="w-4 h-4 mr-1" />
-                            View
+                            <Eye className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => {
                               setEditingUser(user);
                               setIsEditing(true);
                             }}
-                            className="text-yellow-600 hover:text-yellow-900 inline-flex items-center"
+                            title="Edit"
+                            aria-label="Edit"
+                            className="text-yellow-600 hover:text-yellow-900 inline-flex items-center justify-center p-2 rounded-full"
                           >
-                            <Edit className="w-4 h-4 mr-1" />
-                            Edit
+                            <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => deleteMember(user._id)}
+                            onClick={() => showConfirm('delete', user._id, `Delete member ${user.name}? This cannot be undone.`)}
                             disabled={isDeleting[user._id]}
-                            className={`text-red-600 hover:text-red-900 inline-flex items-center ${
+                            title="Delete"
+                            aria-label="Delete"
+                            className={`text-red-600 hover:text-red-900 inline-flex items-center justify-center p-2 rounded-full ${
                               isDeleting[user._id] ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                           >
@@ -1585,13 +1618,9 @@ const AdminPanel: React.FC = () => {
                                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Deleting...
                               </>
                             ) : (
-                              <>
-                            <Trash className="w-4 h-4 mr-1" />
-                                Delete Member
-                              </>
+                              <Trash className="w-4 h-4" />
                             )}
                           </button>
                         </td>
@@ -1686,33 +1715,31 @@ const AdminPanel: React.FC = () => {
                             <button
                               onClick={() => handleRenewalApproval(user._id)}
                               disabled={loadingStates[user._id]}
-                              className={`text-green-600 hover:text-green-900 inline-flex items-center ${
+                              title="Approve renewal"
+                              aria-label="Approve renewal"
+                              className={`text-green-600 hover:text-green-900 inline-flex items-center justify-center p-2 rounded-full ${
                                 loadingStates[user._id] ? 'opacity-50 cursor-not-allowed' : ''
                               }`}
                             >
                               {loadingStates[user._id] ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
-                                <>
-                                  <CheckCircle className="w-4 h-4 mr-1" />
-                                  Approve Renewal
-                                </>
+                                <CheckCircle className="w-4 h-4" />
                               )}
                             </button>
                             <button
                               onClick={() => handleRenewalRejection(user._id)}
                               disabled={loadingStates[user._id]}
-                              className={`text-red-600 hover:text-red-900 inline-flex items-center ${
+                              title="Reject renewal"
+                              aria-label="Reject renewal"
+                              className={`text-red-600 hover:text-red-900 inline-flex items-center justify-center p-2 rounded-full ${
                                 loadingStates[user._id] ? 'opacity-50 cursor-not-allowed' : ''
                               }`}
                             >
                               {loadingStates[user._id] ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
-                                <>
-                                  <Trash className="w-4 h-4 mr-1" />
-                                  Reject Renewal
-                                </>
+                                <Trash className="w-4 h-4" />
                               )}
                             </button>
                           </td>
@@ -1985,6 +2012,43 @@ const AdminPanel: React.FC = () => {
                 )}
                 {isNotifying ? 'Sending...' : 'Send Notification'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Confirm Popup */}
+      {confirmAction.visible && (
+        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:bottom-6 z-50">
+          <div className="bg-white shadow-2xl border border-gray-200 rounded-xl p-4 w-full md:w-80 animate-slideIn">
+            <div className="flex items-start">
+              <div className={`mr-3 mt-0.5 w-6 h-6 rounded-full flex items-center justify-center ${
+                confirmAction.action === 'delete' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'
+              }`}>
+                {confirmAction.action === 'delete' ? (
+                  <Trash className="w-4 h-4" />
+                ) : (
+                  <CheckCircle className="w-4 h-4" />
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-800 font-medium mb-2">{confirmAction.message}</p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={handleConfirmCancel}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmProceed}
+                    className={`px-3 py-1.5 text-sm rounded-md text-white ${
+                      confirmAction.action === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
+                    }`}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
