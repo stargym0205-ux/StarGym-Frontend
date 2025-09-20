@@ -36,6 +36,7 @@ interface User {
     newAmount: number;
     previousPlan?: string;
   }[];
+  renewalCount?: number;
 }
 
 interface MembershipEntry {
@@ -647,6 +648,17 @@ const AdminPanel: React.FC = () => {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-4 sm:mt-6">
+            <div className="bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition-colors duration-200">
+              <label className="block text-xs sm:text-sm font-medium text-gray-500">Renewals</label>
+              <div className="mt-1 flex items-center">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  {user.renewalCount || 0}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {user.renewals && user.renewals.length > 0 && (
             <div className="mt-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Subscription History</h3>
@@ -991,7 +1003,7 @@ const AdminPanel: React.FC = () => {
         <button
           onClick={() => setIsSidebarOpen(false)}
           aria-label="Close menu"
-          className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-full bg-white text-gray-700 shadow-md hover:bg-gray-100 active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
+          className="lg:hidden fixed top-4 left-4 z-40 p-2 rounded-full bg-white text-gray-700 shadow-md hover:bg-gray-100 active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
         >
           <X className="w-5 h-5" />
         </button>
@@ -1478,6 +1490,9 @@ const AdminPanel: React.FC = () => {
                         Status
                       </th>
                       <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Renewals
+                      </th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Membership Validity
                       </th>
                       <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1525,6 +1540,13 @@ const AdminPanel: React.FC = () => {
                           }`}>
                             {user.paymentStatus === 'confirmed' ? 'Confirmed' : 'Pending'}
                           </span>
+                        </td>
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              {user.renewalCount || 0}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                           {(() => {
