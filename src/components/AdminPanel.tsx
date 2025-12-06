@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, CreditCard, CheckCircle, Eye, Edit, Trash, Bell, LayoutDashboard, RefreshCw, BarChart2, Settings, X, LogOut, Loader2, ChevronRight } from 'lucide-react';
+import { Users, Calendar, CreditCard, CheckCircle, Eye, Edit, Trash, Bell, LayoutDashboard, RefreshCw, BarChart2, Settings, X, LogOut, Loader2, ChevronRight, Download } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { API_BASE_URL } from '../App';
 import { useNavigate } from 'react-router-dom';
+import { apiClient, verifyAuth } from '../utils/apiClient';
 
 interface User {
   _id: string;
@@ -64,9 +65,11 @@ const AdminPanel: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loadingStates, setLoadingStates] = useState<{ [key: string]: boolean }>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState<{ [key: string]: boolean }>({});
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const [activeSidebarSection, setActiveSidebarSection] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [membershipEntries, setMembershipEntries] = useState<MembershipEntry[]>([]);
@@ -83,20 +86,14 @@ const AdminPanel: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setIsRefreshing(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      
+      const response = await apiClient('/api/users', {
+        method: 'GET',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch users');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch users');
       }
 
       const data = await response.json();
@@ -104,55 +101,94 @@ const AdminPanel: React.FC = () => {
         setUsers(data.data.users);
       }
     } catch (error: any) {
+      if (error.message.includes('Session expired') || error.message.includes('No authentication token')) {
+        navigate('/admin');
+        return;
+      }
       toast.error(error.message || 'Failed to fetch users');
     } finally {
       setIsRefreshing(false);
     }
   };
 
+  // Verify authentication on mount and periodically
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isValid = await verifyAuth();
+      if (!isValid) {
+        navigate('/admin');
+      }
+    };
+
+    checkAuth();
+    
+    // Re-verify every 5 minutes
+    const authInterval = setInterval(checkAuth, 5 * 60 * 1000);
+    
+    return () => clearInterval(authInterval);
+  }, [navigate]);
+
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  // Load confirmed membership history entries for all users
+  // Load confirmed membership history entries for all users (including deleted ones)
+  // This ensures revenue calculations include deleted members' subscription amounts
   useEffect(() => {
     const loadAllMembershipEntries = async () => {
       try {
         const token = localStorage.getItem('token');
         if (!token) return;
-        const allEntries: MembershipEntry[] = [];
-        await Promise.all(
-          users.map(async (u) => {
-            try {
-              const res = await fetch(`${API_BASE_URL}/api/users/${u._id}/membership-history`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                }
-              });
-              if (!res.ok) return;
-              const data = await res.json();
-              const entries = (data?.data?.membershipHistory || []) as any[];
-              entries.forEach((e) => {
-                if (e && e.paymentStatus === 'confirmed') {
-                  allEntries.push({ ...e, userId: u._id });
-                }
-              });
-            } catch (_) {
-              // ignore per-user fetch errors
-            }
-          })
-        );
-        setMembershipEntries(allEntries);
+        
+        // Fetch all membership history entries including from deleted users
+        // This is important for accurate revenue calculations
+        const res = await fetch(`${API_BASE_URL}/api/users/membership-history/all`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!res.ok) {
+          // Fallback to per-user fetching if the new endpoint fails
+          const allEntries: MembershipEntry[] = [];
+          await Promise.all(
+            users.map(async (u) => {
+              try {
+                const userRes = await fetch(`${API_BASE_URL}/api/users/${u._id}/membership-history`, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  }
+                });
+                if (!userRes.ok) return;
+                const userData = await userRes.json();
+                const entries = (userData?.data?.membershipHistory || []) as any[];
+                entries.forEach((e) => {
+                  if (e && e.paymentStatus === 'confirmed') {
+                    allEntries.push({ ...e, userId: u._id });
+                  }
+                });
+              } catch (_) {
+                // ignore per-user fetch errors
+              }
+            })
+          );
+          setMembershipEntries(allEntries);
+          return;
+        }
+        
+        const data = await res.json();
+        const entries = (data?.data?.membershipHistory || []) as any[];
+        setMembershipEntries(entries);
       } catch (_) {
-        // ignore
+        // ignore errors, keep existing entries
       }
     };
-    if (users.length > 0) {
-      loadAllMembershipEntries();
-    } else {
-      setMembershipEntries([]);
-    }
+    
+    // Load membership entries when component mounts or users change
+    // This ensures revenue includes deleted users' data
+    loadAllMembershipEntries();
   }, [users]);
 
   const filteredUsers = () => {
@@ -294,6 +330,60 @@ const AdminPanel: React.FC = () => {
     setConfirmAction({ visible: false, action: null, userId: null, message: '' });
   };
 
+  const handleDownloadAllMembersPDF = async () => {
+    try {
+      setIsDownloadingPDF(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      toast.loading('Generating PDF report...', { id: 'pdf-download' });
+
+      const response = await fetch(`${API_BASE_URL}/api/members/download-pdf`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      // Get the PDF blob
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'all-members-report.pdf';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('PDF downloaded successfully!', { id: 'pdf-download' });
+    } catch (error: any) {
+      console.error('Error downloading PDF:', error);
+      toast.error(error.message || 'Failed to download PDF', { id: 'pdf-download' });
+    } finally {
+      setIsDownloadingPDF(false);
+    }
+  };
+
   const notifyExpiredMember = async (userId: string, userEmail: string, userName: string) => {
     try {
       setIsNotifying(true);
@@ -382,7 +472,7 @@ const AdminPanel: React.FC = () => {
       .reduce((sum, e) => sum + (e.amount || 0), 0);
   };
 
-  const calculateRevenueByPlan = () => {
+  const calculateRevenueByPlan = (year?: number) => {
     const planRevenue: Record<string, number> = {
       '1month': 0,
       '2month': 0,
@@ -390,12 +480,33 @@ const AdminPanel: React.FC = () => {
       '6month': 0,
       'yearly': 0
     };
+    
     membershipEntries
-      .filter((e) => e.paymentStatus === 'confirmed')
+      .filter((e) => {
+        if (e.paymentStatus !== 'confirmed') return false;
+        if (year !== undefined) {
+          const entryDate = new Date(e.date);
+          return entryDate.getFullYear() === year;
+        }
+        return true;
+      })
       .forEach((e) => {
-        planRevenue[e.plan] = (planRevenue[e.plan] || 0) + (e.amount || 0);
+        if (e.plan && planRevenue.hasOwnProperty(e.plan)) {
+          planRevenue[e.plan] = (planRevenue[e.plan] || 0) + (e.amount || 0);
+        }
       });
     return planRevenue;
+  };
+
+  const getPlanDisplayName = (plan: string) => {
+    const planNames: Record<string, string> = {
+      '1month': '1 Month',
+      '2month': '2 Months',
+      '3month': '3 Months',
+      '6month': '6 Months',
+      'yearly': 'Yearly'
+    };
+    return planNames[plan] || plan;
   };
 
   const calculateTotalCashRevenue = (month: number, year: number) => {
@@ -492,7 +603,14 @@ const AdminPanel: React.FC = () => {
   };
 
   const handleLogout = () => {
+    // Show confirmation modal
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = () => {
+    // Clear token and redirect to login
     localStorage.removeItem('token');
+    toast.success('Logged out successfully');
     navigate('/admin');
     window.location.reload();
   };
@@ -1314,7 +1432,28 @@ const AdminPanel: React.FC = () => {
                 </button>
               </div>
 
-              <div className="flex justify-end mb-4">
+              <div className="flex justify-end gap-3 mb-4">
+                <button
+                  onClick={handleDownloadAllMembersPDF}
+                  disabled={isDownloadingPDF || users.length === 0}
+                  className={`px-4 py-2 text-sm rounded-md flex items-center gap-2 transition-all ${
+                    isDownloadingPDF || users.length === 0
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
+                  }`}
+                >
+                  {isDownloadingPDF ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      Download PDF Report
+                    </>
+                  )}
+                </button>
                 <button
                   onClick={fetchUsers}
                   disabled={isRefreshing}
@@ -1944,21 +2083,78 @@ const AdminPanel: React.FC = () => {
 
               {/* Revenue by Plan Type */}
               <div className="mt-8">
-                <h3 className="text-lg font-semibold mb-4">Revenue by Plan Type</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Object.entries(calculateRevenueByPlan()).map(([plan, revenue]) => (
-                    <div key={plan} className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-medium text-gray-800 capitalize">
-                          {plan.replace('month', ' Month').replace('yearly', 'Year')}
-                        </h4>
-                        <CreditCard className="w-5 h-5 text-blue-500" />
+                <h3 className="text-lg font-semibold mb-4">Revenue by Plan Type - {selectedYear}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {Object.entries(calculateRevenueByPlan(selectedYear)).map(([plan, revenue]) => {
+                    const planColors: Record<string, string> = {
+                      '1month': 'bg-blue-50 border-blue-200 text-blue-700',
+                      '2month': 'bg-green-50 border-green-200 text-green-700',
+                      '3month': 'bg-yellow-50 border-yellow-200 text-yellow-700',
+                      '6month': 'bg-purple-50 border-purple-200 text-purple-700',
+                      'yearly': 'bg-orange-50 border-orange-200 text-orange-700'
+                    };
+                    const iconColors: Record<string, string> = {
+                      '1month': 'text-blue-500',
+                      '2month': 'text-green-500',
+                      '3month': 'text-yellow-500',
+                      '6month': 'text-purple-500',
+                      'yearly': 'text-orange-500'
+                    };
+                    
+                    return (
+                      <div 
+                        key={plan} 
+                        className={`p-6 rounded-lg border-2 shadow-sm hover:shadow-md transition-all duration-300 ${planColors[plan] || 'bg-gray-50 border-gray-200 text-gray-700'}`}
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-semibold text-lg">{getPlanDisplayName(plan)}</h4>
+                          <CreditCard className={`w-5 h-5 ${iconColors[plan] || 'text-gray-500'}`} />
+                        </div>
+                        <p className="text-2xl font-bold mb-2">
+                          {formatCurrency(revenue)}
+                        </p>
+                        <p className="text-xs opacity-75 mb-3">
+                          {selectedYear} Total
+                        </p>
+                        {/* Percentage of total revenue */}
+                        {(() => {
+                          const totalYearlyRevenue = calculateYearlyRevenue(selectedYear);
+                          const percentage = totalYearlyRevenue > 0 
+                            ? ((revenue / totalYearlyRevenue) * 100).toFixed(1)
+                            : '0';
+                          return (
+                            <div className="mt-3 pt-3 border-t border-current border-opacity-20">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs opacity-75">Share</span>
+                                <span className="text-sm font-semibold">{percentage}%</span>
+                              </div>
+                              <div className="w-full bg-current bg-opacity-20 rounded-full h-2">
+                                <div 
+                                  className="bg-current h-2 rounded-full transition-all duration-500"
+                                  style={{ width: `${percentage}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
-                      <p className="text-2xl font-bold text-gray-900 mb-2">
-                        {formatCurrency(revenue)}
+                    );
+                  })}
+                </div>
+                
+                {/* Summary Card */}
+                <div className="mt-6 bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-200 rounded-lg p-6 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-800 mb-1">Total Revenue by Plans ({selectedYear})</h4>
+                      <p className="text-3xl font-bold text-gray-900">
+                        {formatCurrency(
+                          Object.values(calculateRevenueByPlan(selectedYear)).reduce((sum, revenue) => sum + revenue, 0)
+                        )}
                       </p>
                     </div>
-                  ))}
+                    <BarChart2 className="w-12 h-12 text-yellow-600" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -2033,6 +2229,37 @@ const AdminPanel: React.FC = () => {
                   </svg>
                 )}
                 {isNotifying ? 'Sending...' : 'Send Notification'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+            <div className="flex items-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center mr-4">
+                <LogOut className="w-6 h-6 text-yellow-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">Confirm Logout</h2>
+            </div>
+            <p className="mb-6 text-gray-700">
+              Are you sure you want to logout? You will need to login again to access the admin panel.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors duration-200 flex items-center gap-2 font-semibold"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
               </button>
             </div>
           </div>

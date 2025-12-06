@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { API_BASE_URL } from '../App';
-import { Dumbbell, Calendar, CreditCard } from 'lucide-react';
+import { Dumbbell, Calendar, CreditCard, Eye, EyeOff } from 'lucide-react';
 
 interface AdminLoginProps {
   onLogin: () => void;
@@ -15,7 +15,7 @@ function NavBar() {
         <div className="flex items-center space-x-2">
           <Dumbbell className="text-yellow-500 animate-bounce" size={24} />
           <span className="text-white text-2xl font-bold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent hover:scale-105 transition-transform duration-300 cursor-default">
-            Gold Gym
+            Star Gym
           </span>
         </div>
       </div>
@@ -62,6 +62,11 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
   });
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,18 +117,57 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setForgotPasswordLoading(true);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ email: forgotPasswordEmail })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send reset email');
+      }
+
+      setForgotPasswordSuccess(true);
+      toast.success('Password reset link has been sent to your email');
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      if (err instanceof Error) {
+        setError(err.message || 'Failed to send reset email. Please try again.');
+        toast.error(err.message || 'Failed to send reset email. Please try again.');
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+        toast.error('An unexpected error occurred.');
+      }
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col">
       <NavBar />
       <main className="flex-grow flex items-center justify-center px-2 py-8">
         <div className="w-full max-w-md bg-white rounded-xl shadow-2xl p-6 sm:p-10 mx-auto transform transition-all hover:scale-[1.01]">
-          <h2 className="text-3xl font-bold text-center mb-8 text-gray-800">Admin Login</h2>
-          {error && (
-            <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-r-lg">
-              {error}
-            </div>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {!showForgotPassword ? (
+            <>
+              <h2 className="text-3xl font-bold text-center mb-8 text-gray-800">Admin Login</h2>
+              {error && (
+                <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-r-lg">
+                  {error}
+                </div>
+              )}
+              <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700">Email</label>
               <input
@@ -141,18 +185,32 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
             </div>
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-gray-700">Password</label>
-              <input
-                type="password"
-                required
-                className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition-all duration-200"
-                value={credentials.password}
-                onChange={(e) => {
-                  setError('');
-                  setCredentials({ ...credentials, password: e.target.value });
-                }}
-                disabled={isLoading}
-                placeholder="Enter your password"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  className="mt-1 block w-full px-4 py-3 pr-12 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition-all duration-200"
+                  value={credentials.password}
+                  onChange={(e) => {
+                    setError('');
+                    setCredentials({ ...credentials, password: e.target.value });
+                  }}
+                  disabled={isLoading}
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                  disabled={isLoading}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} className="cursor-pointer" />
+                  ) : (
+                    <Eye size={20} className="cursor-pointer" />
+                  )}
+                </button>
+              </div>
             </div>
             <button
               type="submit"
@@ -173,7 +231,102 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
                 </span>
               ) : 'Login'}
             </button>
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-yellow-600 hover:text-yellow-700 font-medium hover:underline focus:outline-none"
+                disabled={isLoading}
+              >
+                Forgot Password?
+              </button>
+            </div>
           </form>
+            </>
+          ) : (
+            <>
+              <h2 className="text-3xl font-bold text-center mb-8 text-gray-800">Forgot Password</h2>
+              {error && (
+                <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-r-lg">
+                  {error}
+                </div>
+              )}
+              {forgotPasswordSuccess ? (
+                <div className="space-y-6">
+                  <div className="mb-6 p-4 bg-green-100 border-l-4 border-green-500 text-green-700 rounded-r-lg">
+                    <p className="font-semibold">Email sent successfully!</p>
+                    <p className="mt-2 text-sm">Please check your email for the password reset link. The link will expire in 10 minutes.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotPassword(false);
+                      setForgotPasswordEmail('');
+                      setForgotPasswordSuccess(false);
+                      setError('');
+                    }}
+                    className="w-full px-6 py-3 text-lg font-semibold text-white rounded-lg shadow-lg hover:shadow-xl transform transition-all duration-200 bg-gray-600 hover:bg-gray-700 hover:-translate-y-0.5"
+                  >
+                    Back to Login
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-gray-700">Email</label>
+                    <input
+                      type="email"
+                      required
+                      className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition-all duration-200"
+                      value={forgotPasswordEmail}
+                      onChange={(e) => {
+                        setError('');
+                        setForgotPasswordEmail(e.target.value);
+                      }}
+                      disabled={forgotPasswordLoading}
+                      placeholder="Enter your email"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">
+                      Enter your email address and we'll send you a link to reset your password.
+                    </p>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={forgotPasswordLoading}
+                    className={`w-full px-6 py-3 text-lg font-semibold text-white rounded-lg shadow-lg hover:shadow-xl transform transition-all duration-200 ${
+                      forgotPasswordLoading 
+                        ? 'opacity-50 cursor-not-allowed bg-yellow-500' 
+                        : 'bg-yellow-500 hover:bg-yellow-600 hover:-translate-y-0.5'
+                    }`}
+                  >
+                    {forgotPasswordLoading ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Sending...
+                      </span>
+                    ) : 'Send Reset Link'}
+                  </button>
+                  <div className="text-center mt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgotPassword(false);
+                        setForgotPasswordEmail('');
+                        setError('');
+                      }}
+                      className="text-sm text-gray-600 hover:text-gray-700 font-medium hover:underline focus:outline-none"
+                      disabled={forgotPasswordLoading}
+                    >
+                      Back to Login
+                    </button>
+                  </div>
+                </form>
+              )}
+            </>
+          )}
         </div>
       </main>
       <Footer />

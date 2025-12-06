@@ -324,6 +324,47 @@ const RegistrationForm: React.FC = () => {
         throw new Error(data.message || 'Registration failed. Please try again.');
       }
 
+      const userId = data.data?.user?._id || data.data?.user?.id;
+
+      // If online payment, create payment and redirect to payment page
+      if (formData.paymentMethod === 'online' && userId) {
+        try {
+          console.log('Creating payment for online payment method');
+          const selectedPlanOption = plans.find(plan => plan.id === formData.plan);
+          const paymentResponse = await fetch(`${API_BASE_URL}/api/payments/create`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: userId,
+              plan: formData.plan,
+              amount: selectedPlanOption?.price
+            }),
+          });
+
+          const paymentData = await paymentResponse.json();
+
+          if (!paymentResponse.ok || paymentData.status !== 'success') {
+            throw new Error(paymentData.message || 'Failed to create payment');
+          }
+
+          // Store payment data in localStorage for the payment page
+          localStorage.setItem(`payment_${paymentData.data.orderId}`, JSON.stringify(paymentData.data));
+
+          toast.success('Registration successful! Please complete your payment.');
+          navigate(`/payment/${paymentData.data.orderId}`);
+          return;
+        } catch (paymentError) {
+          console.error('Error creating payment:', paymentError);
+          toast.error('Registration successful but payment setup failed. Please contact admin.');
+          // Still navigate to thank you page as registration was successful
+          navigate('/thank-you');
+          return;
+        }
+      }
+
+      // For cash payment, go directly to thank you page
       toast.success('Registration successful! Please check your email.');
       navigate('/thank-you');
     } catch (error) {

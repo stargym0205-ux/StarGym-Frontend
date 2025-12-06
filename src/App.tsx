@@ -4,13 +4,16 @@ import { Dumbbell, Calendar, CreditCard, Loader2 } from 'lucide-react';
 import RegistrationForm from './components/RegistrationForm';
 import AdminPanel from './components/AdminPanel';
 import AdminLogin from './components/AdminLogin';
+import ResetPassword from './components/ResetPassword';
+import ProtectedRoute from './components/ProtectedRoute';
 import ThankYou from './components/ThankYou';
 import ThankYouPage from './components/ThankYouPage';
 import RenewalForm from './components/RenewalForm';
+import PaymentDetails from './components/PaymentDetails';
 
 // Define API base URL - make sure this matches your backend port
 export const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://gym-backend-hz0n.onrender.com' 
+  ? 'https://gym-backend-ochre-three.vercel.app' 
   : 'http://localhost:3000';
 
 // Create a separate NavBar component that uses useLocation
@@ -24,7 +27,7 @@ function NavBar({ isAdminLoggedIn, onLogout }: { isAdminLoggedIn: boolean; onLog
         <div className="flex items-center space-x-2 px-4 py-2">
           <Dumbbell className="text-yellow-500 animate-bounce" size={24} />
           <span className="text-2xl font-bold accent-text hover:scale-105 transition-transform duration-300 cursor-default">
-            Gold Gym
+            Star Gym
           </span>
         </div>
         {isAdminLoggedIn && isAdminRoute && (
@@ -127,11 +130,17 @@ function App() {
             path="/admin"
             element={
               isAdminLoggedIn ? (
-                <AdminPanel />
+                <ProtectedRoute>
+                  <AdminPanel />
+                </ProtectedRoute>
               ) : (
                 <AdminLogin onLogin={() => setIsAdminLoggedIn(true)} />
               )
             }
+          />
+          <Route
+            path="/admin/reset-password/:token"
+            element={<ResetPassword />}
           />
           <Route
             path="/"
@@ -176,6 +185,18 @@ function App() {
                 <NavBar isAdminLoggedIn={isAdminLoggedIn} onLogout={handleLogout} />
                 <main className="container mx-auto px-4 py-8 flex-grow">
                   <RenewalForm />
+                </main>
+                <Footer />
+              </>
+            }
+          />
+          <Route
+            path="/payment/:orderId"
+            element={
+              <>
+                <NavBar isAdminLoggedIn={isAdminLoggedIn} onLogout={handleLogout} />
+                <main className="container mx-auto px-4 py-8 flex-grow">
+                  <PaymentDetails />
                 </main>
                 <Footer />
               </>
