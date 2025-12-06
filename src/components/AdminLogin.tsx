@@ -67,6 +67,10 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false);
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [resetToken, setResetToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,7 +143,8 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
       }
 
       setForgotPasswordSuccess(true);
-      toast.success('Password reset link has been sent to your email');
+      setShowOTPVerification(true);
+      toast.success('OTP has been sent to your email');
     } catch (err) {
       console.error('Forgot password error:', err);
       if (err instanceof Error) {
@@ -151,6 +156,49 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
       }
     } finally {
       setForgotPasswordLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setOtpLoading(true);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ email: forgotPasswordEmail, otp })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid OTP');
+      }
+
+      if (data.resetToken) {
+        setResetToken(data.resetToken);
+        toast.success('OTP verified successfully! Redirecting to reset password...');
+        // Redirect to reset password page with token
+        setTimeout(() => {
+          window.location.href = `/admin/reset-password/${data.resetToken}`;
+        }, 1000);
+      }
+    } catch (err) {
+      console.error('Verify OTP error:', err);
+      if (err instanceof Error) {
+        setError(err.message || 'Invalid OTP. Please try again.');
+        toast.error(err.message || 'Invalid OTP. Please try again.');
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+        toast.error('An unexpected error occurred.');
+      }
+    } finally {
+      setOtpLoading(false);
     }
   };
 
@@ -251,12 +299,104 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
                   {error}
                 </div>
               )}
-              {forgotPasswordSuccess ? (
+              {showOTPVerification ? (
+                <form onSubmit={handleVerifyOTP} className="space-y-6">
+                  <div className="mb-6 p-4 bg-blue-100 border-l-4 border-blue-500 text-blue-700 rounded-r-lg">
+                    <p className="font-semibold">OTP Sent!</p>
+                    <p className="mt-2 text-sm">Please check your email for the 6-digit OTP code. The OTP will expire in 10 minutes.</p>
+                  </div>
+                  {error && (
+                    <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-r-lg">
+                      {error}
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-gray-700">Enter OTP</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      pattern="[0-9]{6}"
+                      className="mt-1 block w-full px-4 py-3 rounded-lg border-2 border-gray-200 shadow-sm focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition-all duration-200 text-center text-2xl tracking-widest font-mono"
+                      value={otp}
+                      onChange={(e) => {
+                        setError('');
+                        // Only allow numbers and limit to 6 digits
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setOtp(value);
+                      }}
+                      disabled={otpLoading}
+                      placeholder="000000"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">
+                      Enter the 6-digit code sent to {forgotPasswordEmail}
+                    </p>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={otpLoading || otp.length !== 6}
+                    className={`w-full px-6 py-3 text-lg font-semibold text-white rounded-lg shadow-lg hover:shadow-xl transform transition-all duration-200 ${
+                      otpLoading || otp.length !== 6
+                        ? 'opacity-50 cursor-not-allowed bg-yellow-500' 
+                        : 'bg-yellow-500 hover:bg-yellow-600 hover:-translate-y-0.5'
+                    }`}
+                  >
+                    {otpLoading ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Verifying...
+                      </span>
+                    ) : 'Verify OTP'}
+                  </button>
+                  <div className="text-center mt-4 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOTPVerification(false);
+                        setOtp('');
+                        setError('');
+                      }}
+                      className="text-sm text-gray-600 hover:text-gray-700 font-medium hover:underline focus:outline-none"
+                      disabled={otpLoading}
+                    >
+                      Resend OTP
+                    </button>
+                    <br />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgotPassword(false);
+                        setShowOTPVerification(false);
+                        setForgotPasswordEmail('');
+                        setForgotPasswordSuccess(false);
+                        setOtp('');
+                        setError('');
+                      }}
+                      className="text-sm text-gray-600 hover:text-gray-700 font-medium hover:underline focus:outline-none"
+                      disabled={otpLoading}
+                    >
+                      Back to Login
+                    </button>
+                  </div>
+                </form>
+              ) : forgotPasswordSuccess ? (
                 <div className="space-y-6">
                   <div className="mb-6 p-4 bg-green-100 border-l-4 border-green-500 text-green-700 rounded-r-lg">
                     <p className="font-semibold">Email sent successfully!</p>
-                    <p className="mt-2 text-sm">Please check your email for the password reset link. The link will expire in 10 minutes.</p>
+                    <p className="mt-2 text-sm">Please check your email for the OTP code. The OTP will expire in 10 minutes.</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOTPVerification(true);
+                    }}
+                    className="w-full px-6 py-3 text-lg font-semibold text-white rounded-lg shadow-lg hover:shadow-xl transform transition-all duration-200 bg-yellow-500 hover:bg-yellow-600 hover:-translate-y-0.5"
+                  >
+                    Enter OTP
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -287,7 +427,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
                       placeholder="Enter your email"
                     />
                     <p className="text-sm text-gray-600 mt-2">
-                      Enter your email address and we'll send you a link to reset your password.
+                      Enter your email address and we'll send you an OTP code to reset your password.
                     </p>
                   </div>
                   <button
@@ -307,7 +447,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
                         </svg>
                         Sending...
                       </span>
-                    ) : 'Send Reset Link'}
+                    ) : 'Send OTP'}
                   </button>
                   <div className="text-center mt-4">
                     <button

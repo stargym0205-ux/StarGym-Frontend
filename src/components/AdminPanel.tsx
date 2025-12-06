@@ -1546,6 +1546,46 @@ const AdminPanel: React.FC = () => {
                             )}
                           </button>
                         )}
+                        {user.paymentStatus === 'confirmed' && (
+                          <>
+                            <button
+                              onClick={() => {
+                                const previewUrl = `${API_BASE_URL}/api/receipt/preview/${user._id}`;
+                                window.open(previewUrl, '_blank');
+                              }}
+                              title="Preview Receipt"
+                              aria-label="Preview Receipt"
+                              className="text-xs bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full flex items-center justify-center transition-colors duration-200"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`${API_BASE_URL}/api/receipt/download/${user._id}`);
+                                  if (!response.ok) throw new Error('Failed to download receipt');
+                                  const blob = await response.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `receipt-${user._id}.pdf`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  link.remove();
+                                  window.URL.revokeObjectURL(url);
+                                  toast.success('Receipt downloaded successfully!');
+                                } catch (error: any) {
+                                  toast.error(error.message || 'Failed to download receipt');
+                                }
+                              }}
+                              title="Download Receipt"
+                              aria-label="Download Receipt"
+                              className="text-xs bg-green-500 hover:bg-green-600 text-white p-2 rounded-full flex items-center justify-center transition-colors duration-200"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                         {isSubscriptionExpired(user.endDate) && (
                           <button
                             onClick={() => {
@@ -1731,6 +1771,46 @@ const AdminPanel: React.FC = () => {
                                 <CheckCircle className="w-4 h-4" />
                               )}
                             </button>
+                          )}
+                          {user.paymentStatus === 'confirmed' && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  const previewUrl = `${API_BASE_URL}/api/receipt/preview/${user._id}`;
+                                  window.open(previewUrl, '_blank');
+                                }}
+                                title="Preview Receipt"
+                                aria-label="Preview Receipt"
+                                className="text-blue-600 hover:text-blue-800 inline-flex items-center justify-center p-2 rounded-full transition-colors duration-200"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const response = await fetch(`${API_BASE_URL}/api/receipt/download/${user._id}`);
+                                    if (!response.ok) throw new Error('Failed to download receipt');
+                                    const blob = await response.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.download = `receipt-${user._id}.pdf`;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    link.remove();
+                                    window.URL.revokeObjectURL(url);
+                                    toast.success('Receipt downloaded successfully!');
+                                  } catch (error: any) {
+                                    toast.error(error.message || 'Failed to download receipt');
+                                  }
+                                }}
+                                title="Download Receipt"
+                                aria-label="Download Receipt"
+                                className="text-green-600 hover:text-green-800 inline-flex items-center justify-center p-2 rounded-full transition-colors duration-200"
+                              >
+                                <Download className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
                           {isSubscriptionExpired(user.endDate) && (
                           <button
