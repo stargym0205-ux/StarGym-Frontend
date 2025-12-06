@@ -683,15 +683,6 @@ const AdminPanel: React.FC = () => {
                       {user.phone}
                     </p>
                   </div>
-                  <div className="bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition-colors duration-200">
-                    <label className="block text-xs sm:text-sm font-medium text-gray-500">Date of Birth</label>
-                    <p className="mt-1 text-sm sm:text-base text-gray-900 flex items-center">
-                      <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      {new Date(user.dob).toLocaleDateString()}
-                    </p>
-                  </div>
                 </div>
                 
                 <div className="space-y-3 sm:space-y-4">
