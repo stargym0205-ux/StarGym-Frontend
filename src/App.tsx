@@ -13,7 +13,7 @@ import PaymentDetails from './components/PaymentDetails';
 
 // Define API base URL - make sure this matches your backend port
 export const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://gym-backend-ochre-three.vercel.app' 
+  ? 'https://star-gym-backend.vercel.app' 
   : 'http://localhost:3000';
 
 // Create a separate NavBar component that uses useLocation
