@@ -42,9 +42,9 @@ export const apiClient = async (
     // Clear token and redirect to login
     localStorage.removeItem('token');
     
-    // Only redirect if we're not already on the login page
-    if (!window.location.pathname.includes('/admin') || window.location.pathname.includes('/admin/reset-password')) {
-      window.location.href = '/admin';
+    // Only redirect if we're not already on the login page or reset password page
+    if (!window.location.pathname.includes('/admin/login') && !window.location.pathname.includes('/admin/reset-password')) {
+      window.location.href = '/admin/login';
     }
     
     throw new Error('Session expired. Please login again.');

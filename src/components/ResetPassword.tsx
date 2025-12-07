@@ -110,7 +110,7 @@ const ResetPassword: React.FC = () => {
       
       // Redirect to login after 2 seconds
       setTimeout(() => {
-        navigate('/admin');
+        navigate('/admin/login');
       }, 2000);
     } catch (err) {
       console.error('Reset password error:', err);
@@ -145,7 +145,7 @@ const ResetPassword: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={() => navigate('/admin')}
+                onClick={() => navigate('/admin/login')}
                 className="w-full px-6 py-3 text-lg font-semibold text-white rounded-lg shadow-lg hover:shadow-xl transform transition-all duration-200 bg-yellow-500 hover:bg-yellow-600 hover:-translate-y-0.5"
               >
                 Go to Login
@@ -236,7 +236,7 @@ const ResetPassword: React.FC = () => {
               <div className="text-center mt-4">
                 <button
                   type="button"
-                  onClick={() => navigate('/admin')}
+                  onClick={() => navigate('/admin/login')}
                   className="text-sm text-gray-600 hover:text-gray-700 font-medium hover:underline focus:outline-none"
                   disabled={isLoading}
                 >

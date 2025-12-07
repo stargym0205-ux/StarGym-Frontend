@@ -179,16 +179,18 @@ function App() {
     <Router>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col">
         <Routes>
+          {/* Admin login route - always accessible */}
+          <Route
+            path="/admin/login"
+            element={<AdminLogin onLogin={() => setIsAdminLoggedIn(true)} />}
+          />
+          {/* Admin panel - always protected, requires authentication */}
           <Route
             path="/admin"
             element={
-              isAdminLoggedIn ? (
-                <ProtectedRoute>
-                  <AdminPanel />
-                </ProtectedRoute>
-              ) : (
-                <AdminLogin onLogin={() => setIsAdminLoggedIn(true)} />
-              )
+              <ProtectedRoute>
+                <AdminPanel />
+              </ProtectedRoute>
             }
           />
           <Route

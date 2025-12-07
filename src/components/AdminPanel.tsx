@@ -381,7 +381,7 @@ const AdminPanel: React.FC = () => {
       }
     } catch (error: any) {
       if (error.message.includes('Session expired') || error.message.includes('No authentication token')) {
-        navigate('/admin');
+        navigate('/admin/login');
         return;
       }
       toast.error(error.message || 'Failed to fetch users');
@@ -395,7 +395,7 @@ const AdminPanel: React.FC = () => {
     const checkAuth = async () => {
       const isValid = await verifyAuth();
       if (!isValid) {
-        navigate('/admin');
+        navigate('/admin/login');
       }
     };
 
@@ -993,7 +993,7 @@ const AdminPanel: React.FC = () => {
     // Clear token and redirect to login
     localStorage.removeItem('token');
     toast.success('Logged out successfully');
-    navigate('/admin');
+    navigate('/admin/login');
     window.location.reload();
   };
 

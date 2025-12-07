@@ -107,6 +107,10 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
       }
       toast.success('Login successful!');
       onLogin();
+      // Redirect to admin panel after successful login
+      setTimeout(() => {
+        window.location.href = '/admin';
+      }, 500);
     } catch (err) {
       console.error('Login error:', err);
       if (err instanceof Error) {
