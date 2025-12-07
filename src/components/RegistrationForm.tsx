@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { addMonths } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../App';
+import { getPlanPricing } from '../utils/apiClient';
 
 interface FormData {
   name: string;
@@ -34,7 +35,8 @@ interface PlanOption {
   months: number;
 }
 
-const plans: PlanOption[] = [
+// Default plans structure (will be updated with pricing from settings)
+const defaultPlans: PlanOption[] = [
   {
     id: '1month',
     name: '1 Month',
@@ -69,6 +71,8 @@ const plans: PlanOption[] = [
 
 const RegistrationForm: React.FC = () => {
   const navigate = useNavigate();
+  const [plans, setPlans] = useState<PlanOption[]>(defaultPlans);
+  const [isLoadingPricing, setIsLoadingPricing] = useState(true);
 
   // Helper function to format date as YYYY-MM-DD
   const formatDate = (date: Date): string => {
@@ -113,6 +117,32 @@ const RegistrationForm: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<'1month' | '2month' | '3month' | '6month' | 'yearly'>('1month');
   const [isLoading, setIsLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
+
+  // Fetch plan pricing from settings on component mount
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        setIsLoadingPricing(true);
+        const pricing = await getPlanPricing();
+        
+        // Update plans with fetched pricing
+        setPlans(prevPlans => 
+          prevPlans.map(plan => ({
+            ...plan,
+            price: pricing[plan.id] || plan.price // Use fetched price or fallback to default
+          }))
+        );
+      } catch (error: any) {
+        console.error('Error fetching plan pricing:', error);
+        // Keep default prices if fetch fails
+        toast.error('Failed to load plan pricing. Using default prices.');
+      } finally {
+        setIsLoadingPricing(false);
+      }
+    };
+
+    fetchPricing();
+  }, []);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -400,6 +430,12 @@ const RegistrationForm: React.FC = () => {
       {/* Price Selection Section */}
       <div className="mb-8">
         <h3 className="text-xl font-semibold text-white mb-4">Select Your Plan</h3>
+        {isLoadingPricing ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin text-yellow-500" />
+            <span className="ml-3 text-white">Loading plans...</span>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {plans.map((plan) => (
             <button
@@ -420,6 +456,7 @@ const RegistrationForm: React.FC = () => {
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {/* Registration Form */}

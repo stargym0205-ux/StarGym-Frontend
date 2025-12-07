@@ -4,6 +4,7 @@ import { Loader2, QrCode, Smartphone, CheckCircle2, Clock, XCircle } from 'lucid
 import toast from 'react-hot-toast';
 import { API_BASE_URL } from '../App';
 import { addMonths } from 'date-fns';
+import { getPlanPricing } from '../utils/apiClient';
 
 interface RenewalFormData {
   plan: '1month' | '2month' | '3month' | '6month' | 'yearly';
@@ -19,7 +20,8 @@ interface PlanOption {
   months: number;
 }
 
-const plans: PlanOption[] = [
+// Default plans structure (will be updated with pricing from settings)
+const defaultPlans: PlanOption[] = [
   {
     id: '1month',
     name: '1 Month',
@@ -55,6 +57,8 @@ const plans: PlanOption[] = [
 const RenewalForm: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const [plans, setPlans] = useState<PlanOption[]>(defaultPlans);
+  const [isLoadingPricing, setIsLoadingPricing] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [userData, setUserData] = useState<any>(null);
   const [formData, setFormData] = useState<RenewalFormData>({
@@ -68,6 +72,32 @@ const RenewalForm: React.FC = () => {
   const [paymentStatus, setPaymentStatus] = useState<string>('created');
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isPolling, setIsPolling] = useState(false);
+
+  // Fetch plan pricing from settings on component mount
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        setIsLoadingPricing(true);
+        const pricing = await getPlanPricing();
+        
+        // Update plans with fetched pricing
+        setPlans(prevPlans => 
+          prevPlans.map(plan => ({
+            ...plan,
+            price: pricing[plan.id] || plan.price // Use fetched price or fallback to default
+          }))
+        );
+      } catch (error: any) {
+        console.error('Error fetching plan pricing:', error);
+        // Keep default prices if fetch fails
+        toast.error('Failed to load plan pricing. Using default prices.');
+      } finally {
+        setIsLoadingPricing(false);
+      }
+    };
+
+    fetchPricing();
+  }, []);
 
   useEffect(() => {
     const verifyToken = async () => {
@@ -308,6 +338,12 @@ const RenewalForm: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Select Plan</label>
+                {isLoadingPricing ? (
+                  <div className="mt-2 flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-yellow-500" />
+                    <span className="ml-3 text-gray-600">Loading plans...</span>
+                  </div>
+                ) : (
                 <div className="mt-2 grid grid-cols-1 gap-3">
                   {plans.map((plan) => (
                     <div
@@ -339,6 +375,7 @@ const RenewalForm: React.FC = () => {
                     </div>
                   ))}
                 </div>
+                )}
               </div>
 
               <div>

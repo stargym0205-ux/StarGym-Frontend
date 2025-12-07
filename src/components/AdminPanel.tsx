@@ -3,7 +3,7 @@ import { Users, Calendar, CreditCard, CheckCircle, Eye, Edit, Trash, Bell, Layou
 import { toast } from 'react-hot-toast';
 import { API_BASE_URL } from '../App';
 import { useNavigate } from 'react-router-dom';
-import { apiClient, verifyAuth } from '../utils/apiClient';
+import { apiClient, verifyAuth, getSettings, updateSettings, Settings as SettingsType } from '../utils/apiClient';
 
 interface User {
   _id: string;
@@ -53,6 +53,282 @@ interface MembershipEntry {
   userId: string;
 }
 
+// Settings Section Components
+const PlanPricingSection: React.FC<{
+  planPricing: SettingsType['planPricing'];
+  onSave: (data: SettingsType['planPricing']) => void;
+  isSaving: boolean;
+}> = ({ planPricing, onSave, isSaving }) => {
+  const [prices, setPrices] = useState(planPricing);
+
+  useEffect(() => {
+    setPrices(planPricing);
+  }, [planPricing]);
+
+  const handleChange = (plan: keyof typeof planPricing, value: number) => {
+    setPrices({ ...prices, [plan]: value });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(prices);
+  };
+
+  return (
+    <div className="p-6 border border-gray-200 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50">
+      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <CreditCard className="w-5 h-5" />
+        Membership Plan Pricing
+      </h3>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {(['1month', '2month', '3month', '6month', 'yearly'] as const).map((plan) => (
+            <div key={plan} className="bg-white p-4 rounded-lg border border-gray-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {plan === '1month' ? '1 Month' : 
+                 plan === '2month' ? '2 Months' : 
+                 plan === '3month' ? '3 Months' : 
+                 plan === '6month' ? '6 Months' : '1 Year'}
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">Rs.</span>
+                <input
+                  type="number"
+                  value={prices[plan]}
+                  onChange={(e) => handleChange(plan, parseFloat(e.target.value) || 0)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="0"
+                  step="100"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          type="submit"
+          disabled={isSaving}
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Save Pricing'
+          )}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+const GymInfoSection: React.FC<{
+  gymInfo: SettingsType['gymInfo'];
+  onSave: (data: SettingsType['gymInfo']) => void;
+  isSaving: boolean;
+}> = ({ gymInfo, onSave, isSaving }) => {
+  const [info, setInfo] = useState(gymInfo);
+
+  useEffect(() => {
+    setInfo(gymInfo);
+  }, [gymInfo]);
+
+  const handleChange = (field: keyof typeof gymInfo, value: string) => {
+    setInfo({ ...info, [field]: value });
+  };
+
+  const handleFooterChange = (section: 'openingHours' | 'paymentMethods' | 'contactEmail' | 'contactPhone', field: string, value: string) => {
+    setInfo({
+      ...info,
+      footer: {
+        ...info.footer,
+        [section]: section === 'openingHours' 
+          ? { ...info.footer.openingHours, [field]: value }
+          : value
+      }
+    });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(info);
+  };
+
+  return (
+    <div className="p-6 border border-gray-200 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50">
+      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <LayoutDashboard className="w-5 h-5" />
+        Gym Information
+      </h3>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Gym Information */}
+        <div>
+          <h4 className="text-lg font-medium text-gray-800 mb-3">Basic Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Gym Name</label>
+              <input
+                type="text"
+                value={info.name}
+                onChange={(e) => handleChange('name', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+              <input
+                type="text"
+                value={info.phone}
+                onChange={(e) => handleChange('phone', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <input
+                type="email"
+                value={info.email}
+                onChange={(e) => handleChange('email', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Website</label>
+              <input
+                type="url"
+                value={info.website}
+                onChange={(e) => handleChange('website', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+              <textarea
+                value={info.address}
+                onChange={(e) => handleChange('address', e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Business Hours</label>
+              <input
+                type="text"
+                value={info.businessHours}
+                onChange={(e) => handleChange('businessHours', e.target.value)}
+                placeholder="e.g., 6:00 AM - 10:00 PM"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Information */}
+        <div className="border-t pt-4">
+          <h4 className="text-lg font-medium text-gray-800 mb-3">Footer Information</h4>
+          <div className="space-y-4">
+            {/* Opening Hours */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <h5 className="text-sm font-semibold text-gray-700 mb-3">Opening Hours</h5>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Days</label>
+                  <input
+                    type="text"
+                    value={info.footer?.openingHours?.days || ''}
+                    onChange={(e) => handleFooterChange('openingHours', 'days', e.target.value)}
+                    placeholder="e.g., Monday - Saturday"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Morning Hours</label>
+                  <input
+                    type="text"
+                    value={info.footer?.openingHours?.morningHours || ''}
+                    onChange={(e) => handleFooterChange('openingHours', 'morningHours', e.target.value)}
+                    placeholder="e.g., 6:00 AM - 9:00 AM"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Evening Hours</label>
+                  <input
+                    type="text"
+                    value={info.footer?.openingHours?.eveningHours || ''}
+                    onChange={(e) => handleFooterChange('openingHours', 'eveningHours', e.target.value)}
+                    placeholder="e.g., 4:00 PM - 9:00 PM"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Methods */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <h5 className="text-sm font-semibold text-gray-700 mb-3">Payment Methods</h5>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Methods (comma separated)</label>
+                <input
+                  type="text"
+                  value={info.footer?.paymentMethods || ''}
+                  onChange={(e) => handleFooterChange('paymentMethods', '', e.target.value)}
+                  placeholder="e.g., Cash, Online Payment"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">Separate multiple methods with commas</p>
+              </div>
+            </div>
+
+            {/* Contact Information */}
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <h5 className="text-sm font-semibold text-gray-700 mb-3">Contact Information</h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Contact Email</label>
+                  <input
+                    type="email"
+                    value={info.footer?.contactEmail || ''}
+                    onChange={(e) => handleFooterChange('contactEmail', '', e.target.value)}
+                    placeholder="e.g., admin@gmail.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Contact Phone</label>
+                  <input
+                    type="text"
+                    value={info.footer?.contactPhone || ''}
+                    onChange={(e) => handleFooterChange('contactPhone', '', e.target.value)}
+                    placeholder="e.g., 9101321032"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isSaving}
+          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Save Gym Info'
+          )}
+        </button>
+      </form>
+    </div>
+  );
+};
+
 const AdminPanel: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState('members');
@@ -79,6 +355,9 @@ const AdminPanel: React.FC = () => {
     userId: string | null;
     message: string;
   }>({ visible: false, action: null, userId: null, message: '' });
+  const [settings, setSettings] = useState<SettingsType | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const navigate = useNavigate();
 
   const currentYear = new Date().getFullYear();
@@ -131,6 +410,41 @@ const AdminPanel: React.FC = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Fetch settings when settings section is active
+  useEffect(() => {
+    if (activeSidebarSection === 'settings' && !settings) {
+      fetchSettings();
+    }
+  }, [activeSidebarSection]);
+
+  const fetchSettings = async () => {
+    try {
+      setIsLoadingSettings(true);
+      const data = await getSettings();
+      setSettings(data);
+    } catch (error: any) {
+      console.error('Error fetching settings:', error);
+      toast.error(error.message || 'Failed to load settings');
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  };
+
+  const handleSaveSettings = async (section: string, data: any) => {
+    try {
+      setIsSavingSettings(true);
+      await updateSettings({ [section]: data });
+      const updatedSettings = await getSettings();
+      setSettings(updatedSettings);
+      toast.success('Settings updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating settings:', error);
+      toast.error(error.message || 'Failed to update settings');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   // Load confirmed membership history entries for all users (including deleted ones)
   // This ensures revenue calculations include deleted members' subscription amounts
@@ -2323,15 +2637,38 @@ const AdminPanel: React.FC = () => {
 
           {activeSidebarSection === 'settings' && (
             <div className="bg-white rounded-lg shadow-xl p-4 md:p-6">
-              <h2 className="text-2xl font-bold mb-6">Settings</h2>
-              <div className="space-y-6">
-                <div className="p-4 border rounded-lg">
-                  <h3 className="text-lg font-semibold mb-4">General Settings</h3>
-                  {/* Add settings content here */}
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <Settings className="w-6 h-6" />
+                Settings
+              </h2>
+              
+              {isLoadingSettings ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
                 </div>
-          </div>
-        </div>
-      )}
+              ) : settings ? (
+                <div className="space-y-6">
+                  {/* Membership Plan Pricing */}
+                  <PlanPricingSection
+                    planPricing={settings.planPricing}
+                    onSave={(data) => handleSaveSettings('planPricing', data)}
+                    isSaving={isSavingSettings}
+                  />
+
+                  {/* Gym Information */}
+                  <GymInfoSection
+                    gymInfo={settings.gymInfo}
+                    onSave={(data) => handleSaveSettings('gymInfo', data)}
+                    isSaving={isSavingSettings}
+                  />
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  Failed to load settings. Please try again.
+                </div>
+              )}
+            </div>
+          )}
                     </div>
               </div>
       
