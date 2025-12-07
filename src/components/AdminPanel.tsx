@@ -234,6 +234,19 @@ const AdminPanel: React.FC = () => {
     return new Date(endDate) < new Date();
   };
 
+  const isSubscriptionExpiring = (endDate: string | Date) => {
+    const today = new Date();
+    const end = new Date(endDate);
+    const daysLeft = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return daysLeft > 0 && daysLeft <= 7;
+  };
+
+  const getDaysLeft = (endDate: string | Date) => {
+    const today = new Date();
+    const end = new Date(endDate);
+    return Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
   const getPlanAmount = (plan: string): number => {
     const amounts: Record<string, number> = {
       '1month': 1500,
@@ -411,6 +424,61 @@ const AdminPanel: React.FC = () => {
       const data = await response.json();
       if (data.status === 'success') {
         toast.success('Notification sent successfully!', {
+          duration: 4000,
+          position: 'top-right',
+          style: {
+            background: '#10B981',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+          },
+        });
+        setShowNotificationModal(false);
+        setSelectedUserForNotification(null);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send notification', {
+        duration: 4000,
+        position: 'top-right',
+        style: {
+          background: '#EF4444',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '8px',
+        },
+      });
+    } finally {
+      setIsNotifying(false);
+    }
+  };
+
+  const notifyExpiringMember = async (userId: string, userEmail: string, userName: string) => {
+    try {
+      setIsNotifying(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/users/notify-expiring/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          name: userName
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send notification');
+      }
+
+      const data = await response.json();
+      if (data.status === 'success') {
+        toast.success('Expiry notification sent successfully!', {
           duration: 4000,
           position: 'top-right',
           style: {
@@ -1732,9 +1800,15 @@ const AdminPanel: React.FC = () => {
                               );
                             } else if (daysLeft <= 7) {
                               return (
-                                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
-                                  {daysLeft} days left
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+                                    {daysLeft} days left
+                                  </span>
+                                  <span className="relative inline-flex" title="Subscription expiring soon - send notification">
+                                    <Bell className="w-4 h-4 text-orange-600 animate-pulse" />
+                                    <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white"></span>
+                                  </span>
+                                </div>
                               );
                             } else {
                               return (
@@ -1802,6 +1876,22 @@ const AdminPanel: React.FC = () => {
                                 <Download className="w-4 h-4" />
                               </button>
                             </>
+                          )}
+                          {isSubscriptionExpiring(user.endDate) && (
+                            <button
+                              onClick={() => {
+                                setSelectedUserForNotification(user);
+                                setShowNotificationModal(true);
+                              }}
+                              title="Notify member about expiring subscription"
+                              aria-label="Notify member about expiring subscription"
+                              className="text-orange-600 hover:text-orange-900 inline-flex items-center justify-center p-2 rounded-full relative"
+                            >
+                              <span className="relative">
+                                <Bell className="w-4 h-4" />
+                                <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-orange-500 ring-2 ring-white"></span>
+                              </span>
+                            </button>
                           )}
                           {isSubscriptionExpired(user.endDate) && (
                           <button
@@ -2269,9 +2359,21 @@ const AdminPanel: React.FC = () => {
       {showNotificationModal && selectedUserForNotification && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Send Expiry Notification</h2>
+            <h2 className="text-xl font-bold mb-4 text-gray-800">
+              {isSubscriptionExpired(selectedUserForNotification.endDate) 
+                ? 'Send Expiry Notification' 
+                : 'Send Expiring Subscription Notification'}
+            </h2>
             <p className="mb-6 text-gray-700">
-              Are you sure you want to notify <span className="font-semibold">{selectedUserForNotification.name}</span> ({selectedUserForNotification.email}) about their expired membership?
+              {isSubscriptionExpired(selectedUserForNotification.endDate) ? (
+                <>
+                  Are you sure you want to notify <span className="font-semibold">{selectedUserForNotification.name}</span> ({selectedUserForNotification.email}) about their expired membership?
+                </>
+              ) : (
+                <>
+                  Are you sure you want to notify <span className="font-semibold">{selectedUserForNotification.name}</span> ({selectedUserForNotification.email}) that their membership expires in <span className="font-semibold text-orange-600">{getDaysLeft(selectedUserForNotification.endDate)} days</span>?
+                </>
+              )}
             </p>
             <div className="flex justify-end gap-3">
               <button
@@ -2281,15 +2383,27 @@ const AdminPanel: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() =>
-                  notifyExpiredMember(
-                    selectedUserForNotification._id,
-                    selectedUserForNotification.email,
-                    selectedUserForNotification.name
-                  )
-                }
+                onClick={() => {
+                  if (isSubscriptionExpired(selectedUserForNotification.endDate)) {
+                    notifyExpiredMember(
+                      selectedUserForNotification._id,
+                      selectedUserForNotification.email,
+                      selectedUserForNotification.name
+                    );
+                  } else {
+                    notifyExpiringMember(
+                      selectedUserForNotification._id,
+                      selectedUserForNotification.email,
+                      selectedUserForNotification.name
+                    );
+                  }
+                }}
                 disabled={isNotifying}
-                className={`px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 flex items-center gap-2 ${
+                className={`px-4 py-2 ${
+                  isSubscriptionExpired(selectedUserForNotification.endDate)
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : 'bg-orange-600 hover:bg-orange-700'
+                } text-white rounded-md flex items-center gap-2 ${
                   isNotifying ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
