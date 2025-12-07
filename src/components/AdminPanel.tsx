@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { API_BASE_URL } from '../App';
 import { useNavigate } from 'react-router-dom';
 import { apiClient, verifyAuth, getSettings, updateSettings, Settings as SettingsType } from '../utils/apiClient';
+import { addMonths } from 'date-fns';
 
 interface User {
   _id: string;
@@ -1202,6 +1203,59 @@ const AdminPanel: React.FC = () => {
     const [editedUser, setEditedUser] = useState<User | null>(user);
     const [isSaving, setIsSaving] = useState(false);
 
+    // Helper function to get months from plan type
+    const getPlanMonths = (plan: string): number => {
+      const planToMonths: Record<string, number> = {
+        '1month': 1,
+        '2month': 2,
+        '3month': 3,
+        '6month': 6,
+        'yearly': 12
+      };
+      return planToMonths[plan] || 1;
+    };
+
+    // Helper function to calculate end date from start date and plan
+    const calculateEndDate = (startDate: string, plan: string): string => {
+      if (!startDate) return '';
+      try {
+        const start = new Date(startDate);
+        if (isNaN(start.getTime())) return '';
+        const months = getPlanMonths(plan);
+        const end = addMonths(start, months);
+        return end.toISOString().split('T')[0];
+      } catch (error) {
+        console.error('Error calculating end date:', error);
+        return '';
+      }
+    };
+
+    // Handle start date change - automatically calculate end date
+    const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!editedUser) return;
+      const newStartDate = e.target.value;
+      const calculatedEndDate = calculateEndDate(newStartDate, editedUser.plan);
+      setEditedUser({ 
+        ...editedUser, 
+        startDate: newStartDate,
+        endDate: calculatedEndDate || editedUser.endDate
+      } as User);
+    };
+
+    // Handle plan change - recalculate end date if start date exists
+    const handlePlanChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      if (!editedUser) return;
+      const newPlan = e.target.value;
+      const calculatedEndDate = editedUser.startDate 
+        ? calculateEndDate(editedUser.startDate, newPlan)
+        : editedUser.endDate;
+      setEditedUser({ 
+        ...editedUser, 
+        plan: newPlan,
+        endDate: calculatedEndDate
+      } as User);
+    };
+
     if (!editedUser) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -1281,7 +1335,7 @@ const AdminPanel: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700">Plan</label>
                 <select
                   value={editedUser.plan}
-                  onChange={(e) => setEditedUser({ ...editedUser, plan: e.target.value })}
+                  onChange={handlePlanChange}
                   className="mt-1 block w-full min-w-0 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-base"
                 >
                   <option value="1month">1 Month</option>
@@ -1318,7 +1372,7 @@ const AdminPanel: React.FC = () => {
                 <input
                   type="date"
                   value={editedUser.startDate ? editedUser.startDate.slice(0, 10) : ''}
-                  onChange={e => setEditedUser({ ...editedUser, startDate: e.target.value })}
+                  onChange={handleStartDateChange}
                   className="mt-1 block w-full min-w-0 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-base"
                 />
               </div>
