@@ -521,34 +521,34 @@ const RenewalForm: React.FC = () => {
 
               {/* UPI Intent Button */}
               {formData.paymentMethod === 'online' && (
-                <div className="mb-6">
-                  <button
-                    onClick={handleOpenUPI}
-                    disabled={paymentStatus !== 'created'}
-                    className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-lg font-semibold transition-all duration-200 ${
-                      paymentStatus === 'created'
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <Smartphone className="w-5 h-5" />
-                    Open in UPI App (GPay/PhonePe/Paytm)
-                  </button>
-                </div>
+              <div className="mb-6">
+                <button
+                  onClick={handleOpenUPI}
+                  disabled={paymentStatus !== 'created'}
+                  className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-lg font-semibold transition-all duration-200 ${
+                    paymentStatus === 'created'
+                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  <Smartphone className="w-5 h-5" />
+                  Open in UPI App (GPay/PhonePe/Paytm)
+                </button>
+              </div>
               )}
 
               {/* Instructions */}
               {formData.paymentMethod === 'online' && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <h3 className="font-semibold text-gray-800 mb-2">Payment Instructions:</h3>
-                  <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
-                    <li><strong>Scan QR Code:</strong> Open any UPI app (GPay, PhonePe, Paytm, etc.) and scan the QR code. The app will open automatically with the payment amount pre-filled.</li>
-                    <li><strong>Or Click Button:</strong> Click "Open in UPI App" button above to see all available UPI apps and select one (GPay, PhonePe, Paytm, etc.)</li>
-                    <li>Verify the amount and payee details before confirming the payment</li>
-                    <li>Your payment will be automatically confirmed once completed</li>
-                    <li>You will be redirected to the confirmation page once payment is successful</li>
-                  </ol>
-                </div>
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-gray-800 mb-2">Payment Instructions:</h3>
+                <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
+                  <li><strong>Scan QR Code:</strong> Open any UPI app (GPay, PhonePe, Paytm, etc.) and scan the QR code. The app will open automatically with the payment amount pre-filled.</li>
+                  <li><strong>Or Click Button:</strong> Click "Open in UPI App" button above to see all available UPI apps and select one (GPay, PhonePe, Paytm, etc.)</li>
+                  <li>Verify the amount and payee details before confirming the payment</li>
+                  <li>Your payment will be automatically confirmed once completed</li>
+                  <li>You will be redirected to the confirmation page once payment is successful</li>
+                </ol>
+              </div>
               )}
             </div>
           </div>
