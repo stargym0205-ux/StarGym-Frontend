@@ -68,7 +68,7 @@ const ThankYouPage: React.FC = () => {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
               <a
-                href="mailto:stargym0205@gmail.com"
+                href="mailto:stargympetlad0205@gmail.com"
                 className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
               >
                 Contact Support
