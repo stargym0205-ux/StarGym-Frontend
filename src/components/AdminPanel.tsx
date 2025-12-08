@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, CreditCard, CheckCircle, Eye, Edit, Trash, Bell, LayoutDashboard, RefreshCw, BarChart2, Settings, X, LogOut, Loader2, ChevronRight, Download } from 'lucide-react';
+import { Users, Calendar, CreditCard, CheckCircle, Eye, Edit, Trash, Bell, LayoutDashboard, RefreshCw, BarChart2, Settings, X, LogOut, Loader2, ChevronRight, Download, FileCheck } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { API_BASE_URL } from '../App';
 import { useNavigate } from 'react-router-dom';
@@ -359,6 +359,9 @@ const AdminPanel: React.FC = () => {
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [receiptSearchQuery, setReceiptSearchQuery] = useState('');
+  const [receiptVerificationData, setReceiptVerificationData] = useState<any>(null);
+  const [isVerifyingReceipt, setIsVerifyingReceipt] = useState(false);
   const navigate = useNavigate();
 
   const currentYear = new Date().getFullYear();
@@ -709,6 +712,56 @@ const AdminPanel: React.FC = () => {
       toast.error(error.message || 'Failed to download PDF', { id: 'pdf-download' });
     } finally {
       setIsDownloadingPDF(false);
+    }
+  };
+
+  const handleVerifyReceipt = async () => {
+    if (!receiptSearchQuery.trim()) {
+      toast.error('Please enter a receipt number or user ID');
+      return;
+    }
+
+    try {
+      setIsVerifyingReceipt(true);
+      setReceiptVerificationData(null);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Determine if it's a receipt number or user ID
+      const isReceiptNumber = receiptSearchQuery.toUpperCase().startsWith('RCP-');
+      const params = isReceiptNumber
+        ? `?receiptNumber=${encodeURIComponent(receiptSearchQuery)}`
+        : `?userId=${encodeURIComponent(receiptSearchQuery)}`;
+
+      const response = await fetch(`${API_BASE_URL}/api/receipt/verify${params}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to verify receipt');
+      }
+
+      if (data.status === 'success' && data.data) {
+        setReceiptVerificationData(data.data);
+        toast.success('Receipt verified successfully!');
+      } else {
+        throw new Error(data.message || 'Invalid receipt data');
+      }
+    } catch (error: any) {
+      console.error('Error verifying receipt:', error);
+      toast.error(error.message || 'Failed to verify receipt');
+      setReceiptVerificationData(null);
+    } finally {
+      setIsVerifyingReceipt(false);
     }
   };
 
@@ -1643,6 +1696,24 @@ const AdminPanel: React.FC = () => {
                 >
                   <BarChart2 className="w-5 h-5" />
                   <span>Revenue</span>
+                </button>
+              </div>
+
+              {/* Verify Receipt Section */}
+              <div>
+                <button
+                  onClick={() => {
+                    setActiveSidebarSection('verify-receipt');
+                    setIsSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                    activeSidebarSection === 'verify-receipt'
+                      ? 'bg-indigo-50 text-indigo-600 font-medium'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <FileCheck className="w-5 h-5" />
+                  <span>Verify Receipt</span>
                 </button>
               </div>
 
@@ -2685,6 +2756,257 @@ const AdminPanel: React.FC = () => {
                     <BarChart2 className="w-12 h-12 text-yellow-600" />
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeSidebarSection === 'verify-receipt' && (
+            <div className="bg-white rounded-lg shadow-xl p-4 md:p-6">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <FileCheck className="w-6 h-6" />
+                Verify Receipt
+              </h2>
+              
+              <div className="space-y-6">
+                {/* Search Section */}
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Search Receipt</h3>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Receipt Number or User ID
+                      </label>
+                      <input
+                        type="text"
+                        value={receiptSearchQuery}
+                        onChange={(e) => setReceiptSearchQuery(e.target.value)}
+                        placeholder="Enter RCP-XXXXXXXX or User ID"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleVerifyReceipt();
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        onClick={handleVerifyReceipt}
+                        disabled={!receiptSearchQuery.trim() || isVerifyingReceipt}
+                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {isVerifyingReceipt ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Verifying...
+                          </>
+                        ) : (
+                          <>
+                            <FileCheck className="w-4 h-4" />
+                            Verify
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Verification Results */}
+                {receiptVerificationData && (
+                  <div className="space-y-4">
+                    {/* Verification Status */}
+                    <div className={`p-6 rounded-lg border-2 ${
+                      receiptVerificationData.verification?.isValid
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-red-50 border-red-200'
+                    }`}>
+                      <div className="flex items-center gap-3 mb-4">
+                        {receiptVerificationData.verification?.isValid ? (
+                          <CheckCircle className="w-8 h-8 text-green-600" />
+                        ) : (
+                          <X className="w-8 h-8 text-red-600" />
+                        )}
+                        <h3 className={`text-xl font-bold ${
+                          receiptVerificationData.verification?.isValid
+                            ? 'text-green-800'
+                            : 'text-red-800'
+                        }`}>
+                          {receiptVerificationData.verification?.isValid
+                            ? 'Receipt Verified Successfully'
+                            : 'Receipt Verification Failed'}
+                        </h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-semibold text-gray-700">Receipt Number:</span>
+                          <span className="ml-2 font-mono text-gray-900">
+                            {receiptVerificationData.receipt?.receiptNumber}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-700">Member ID:</span>
+                          <span className="ml-2 font-mono text-gray-900">
+                            {receiptVerificationData.receipt?.memberId}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-700">Payment Date:</span>
+                          <span className="ml-2 text-gray-900">
+                            {new Date(receiptVerificationData.receipt?.paymentDate).toLocaleDateString('en-IN', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-gray-700">Amount:</span>
+                          <span className="ml-2 text-gray-900 font-semibold">
+                            ₹{receiptVerificationData.receipt?.amount?.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Customer Details */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <Users className="w-5 h-5" />
+                        Customer Details
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Name:</span>
+                          <p className="text-gray-900 font-semibold">{receiptVerificationData.customer?.name}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Email:</span>
+                          <p className="text-gray-900">{receiptVerificationData.customer?.email}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Phone:</span>
+                          <p className="text-gray-900">{receiptVerificationData.customer?.phone}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Gender:</span>
+                          <p className="text-gray-900">{receiptVerificationData.customer?.gender}</p>
+                        </div>
+                        {receiptVerificationData.customer?.dob && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-600">Date of Birth:</span>
+                            <p className="text-gray-900">
+                              {new Date(receiptVerificationData.customer.dob).toLocaleDateString('en-IN')}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Subscription Details */}
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <CreditCard className="w-5 h-5" />
+                        Subscription Details
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Plan:</span>
+                          <p className="text-gray-900 font-semibold capitalize">
+                            {receiptVerificationData.subscription?.plan?.replace('month', ' Month').replace('yearly', 'Yearly')}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Payment Method:</span>
+                          <p className="text-gray-900 capitalize">
+                            {receiptVerificationData.subscription?.paymentMethod}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Start Date:</span>
+                          <p className="text-gray-900">
+                            {new Date(receiptVerificationData.subscription?.startDate).toLocaleDateString('en-IN', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">End Date:</span>
+                          <p className="text-gray-900">
+                            {new Date(receiptVerificationData.subscription?.endDate).toLocaleDateString('en-IN', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Payment Status:</span>
+                          <p className={`font-semibold ${
+                            receiptVerificationData.subscription?.paymentStatus === 'confirmed'
+                              ? 'text-green-600'
+                              : 'text-orange-600'
+                          }`}>
+                            {receiptVerificationData.subscription?.paymentStatus?.toUpperCase()}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Subscription Status:</span>
+                          <p className={`font-semibold ${
+                            receiptVerificationData.subscription?.subscriptionStatus === 'active'
+                              ? 'text-green-600'
+                              : receiptVerificationData.subscription?.subscriptionStatus === 'expired'
+                              ? 'text-red-600'
+                              : 'text-orange-600'
+                          }`}>
+                            {receiptVerificationData.subscription?.subscriptionStatus?.toUpperCase()}
+                          </p>
+                        </div>
+                        {receiptVerificationData.receipt?.transactionId && (
+                          <div className="md:col-span-2">
+                            <span className="text-sm font-medium text-gray-600">Transaction ID:</span>
+                            <p className="text-gray-900 font-mono">{receiptVerificationData.receipt.transactionId}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Verification Summary */}
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Verification Summary</h3>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className={`w-5 h-5 ${
+                            receiptVerificationData.verification?.receiptMatchesCustomer
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                          }`} />
+                          <span className="text-gray-700">
+                            Receipt matches customer details: {
+                              receiptVerificationData.verification?.receiptMatchesCustomer ? 'Yes' : 'No'
+                            }
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className={`w-5 h-5 ${
+                            receiptVerificationData.verification?.receiptMatchesSubscription
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                          }`} />
+                          <span className="text-gray-700">
+                            Receipt matches subscription: {
+                              receiptVerificationData.verification?.receiptMatchesSubscription ? 'Yes' : 'No'
+                            }
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-500 mt-4">
+                          Verified at: {new Date(receiptVerificationData.verification?.verifiedAt).toLocaleString('en-IN')}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
