@@ -11,6 +11,7 @@ interface FormData {
   email: string;
   phone: string;
   gender: 'Male' | 'Female' | 'Other' | '';
+  address: string;
   photo: File | null;
   plan: '1month' | '2month' | '3month' | '6month' | 'yearly';
   startDate: string;
@@ -24,6 +25,7 @@ interface FormErrors {
   email?: string;
   phone?: string;
   gender?: string;
+  address?: string;
   photo?: string;
   [key: string]: string | undefined;
 }
@@ -105,6 +107,7 @@ const RegistrationForm: React.FC = () => {
     email: '',
     phone: '',
     gender: '',
+    address: '',
     photo: null,
     plan: '1month',
     startDate: formatDate(new Date()),
@@ -260,6 +263,18 @@ const RegistrationForm: React.FC = () => {
       newErrors.gender = 'Gender is required';
       isValid = false;
       console.log('Gender validation failed');
+    }
+
+    // Address validation
+    console.log('Validating address...');
+    if (!formData.address.trim()) {
+      newErrors.address = 'Address is required';
+      isValid = false;
+      console.log('Address validation failed');
+    } else if (formData.address.trim().length < 5) {
+      newErrors.address = 'Address must be at least 5 characters long';
+      isValid = false;
+      console.log('Address validation failed: too short');
     }
 
     // Photo validation
@@ -520,6 +535,25 @@ const RegistrationForm: React.FC = () => {
                 <option value="Other">Other</option>
               </select>
               {errors.gender && <p className="mt-1 text-sm text-red-600">{errors.gender}</p>}
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700">Address</label>
+              <textarea
+                className={`mt-1 block w-full px-4 py-3 rounded-lg border-2 shadow-sm focus:ring-2 focus:ring-yellow-300 transition-all duration-200 resize-none ${
+                  errors.address ? 'border-red-500 focus:border-red-500' : 'border-gray-200 focus:border-yellow-500'
+                }`}
+                rows={3}
+                value={formData.address}
+                onChange={(e) => {
+                  setFormData({ ...formData, address: e.target.value });
+                  if (errors.address) {
+                    setErrors({ ...errors, address: undefined });
+                  }
+                }}
+                placeholder="Enter your full address"
+              />
+              {errors.address && <p className="mt-1 text-sm text-red-600">{errors.address}</p>}
             </div>
           </div>
 

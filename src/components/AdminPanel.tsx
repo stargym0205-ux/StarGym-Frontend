@@ -11,6 +11,7 @@ interface User {
   name: string;
   email: string;
   phone: string;
+  address?: string;
   dob: string;
   photo: string;
   plan: string;
@@ -1119,6 +1120,18 @@ const AdminPanel: React.FC = () => {
                       {user.phone}
                     </p>
                   </div>
+                  {user.address && (
+                    <div className="bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition-colors duration-200 sm:col-span-2">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-500">Address</label>
+                      <p className="mt-1 text-sm sm:text-base text-gray-900 flex items-start">
+                        <svg className="w-4 h-4 mr-2 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span className="break-words">{user.address}</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-3 sm:space-y-4">
@@ -1382,6 +1395,16 @@ const AdminPanel: React.FC = () => {
                   value={editedUser.phone}
                   onChange={(e) => setEditedUser({ ...editedUser, phone: e.target.value })}
                   className="mt-1 block w-full min-w-0 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-base"
+                />
+              </div>
+              <div className="min-w-0 sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">Address</label>
+                <textarea
+                  value={editedUser.address || ''}
+                  onChange={(e) => setEditedUser({ ...editedUser, address: e.target.value })}
+                  rows={3}
+                  className="mt-1 block w-full min-w-0 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-base"
+                  placeholder="Enter address"
                 />
               </div>
               <div className="min-w-0">
