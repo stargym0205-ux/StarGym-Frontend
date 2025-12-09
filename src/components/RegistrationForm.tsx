@@ -147,13 +147,6 @@ const RegistrationForm: React.FC = () => {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const fileSize = file.size / (1024 * 1024); // Convert to MB
-      if (fileSize > 10) {
-        toast.error('Photo size must be less than 10MB');
-        setErrors(prev => ({ ...prev, photo: 'Photo size must be less than 10MB' }));
-        return;
-      }
-
       const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
       if (!allowedTypes.includes(file.type)) {
         toast.error('Please upload a valid image file (JPG, JPEG, or PNG)');
@@ -272,14 +265,7 @@ const RegistrationForm: React.FC = () => {
     // Photo validation
     console.log('Validating photo (if uploaded)...');
     if (formData.photo instanceof File) {
-      console.log('Photo is a File, checking size and type...');
-      const fileSize = formData.photo.size / (1024 * 1024); // Convert to MB
-      if (fileSize > 10) {
-        newErrors.photo = 'Photo size must be less than 10MB';
-        isValid = false;
-        console.log('Photo validation failed: size');
-      }
-
+      console.log('Photo is a File, checking type...');
       const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
       if (!allowedTypes.includes(formData.photo.type)) {
         newErrors.photo = 'Please upload a valid image file (JPG, JPEG, or PNG)';
@@ -568,7 +554,7 @@ const RegistrationForm: React.FC = () => {
               </div>
               <div className="text-sm text-gray-500">
                 Click to upload or drag and drop<br />
-                PNG, JPG up to 10MB
+                PNG, JPG
                 {errors.photo && (
                   <p className="mt-1 text-red-600 font-medium">{errors.photo}</p>
                 )}
