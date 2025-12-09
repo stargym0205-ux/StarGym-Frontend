@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { API_BASE_URL } from '../App';
 import { addMonths } from 'date-fns';
 import { getPlanPricing } from '../utils/apiClient';
+import gpayQR from '../assets/gpay.jpeg';
 
 interface RenewalFormData {
   plan: '1month' | '2month' | '3month' | '6month' | 'yearly';
@@ -499,21 +500,18 @@ const RenewalForm: React.FC = () => {
                       <QrCode className="w-6 h-6 text-yellow-500" />
                       <p className="text-lg font-bold text-gray-800">Scan QR Code to Pay</p>
                     </div>
-                    {paymentData.qrImage ? (
-                      <div className="bg-white p-6 rounded-xl border-4 border-yellow-400 shadow-xl">
-                        <img
-                          src={paymentData.qrImage}
-                          alt="Payment QR Code"
-                          className="w-72 h-72 mx-auto"
-                        />
-                      </div>
-                    ) : (
-                      <div className="bg-gray-100 p-8 rounded-xl border-2 border-gray-300">
-                        <p className="text-gray-500 text-center">QR Code loading...</p>
-                      </div>
-                    )}
+                    <div className="bg-white p-6 rounded-xl border-4 border-yellow-400 shadow-xl">
+                      <img
+                        src={gpayQR}
+                        alt="Payment QR Code"
+                        className="w-72 h-72 mx-auto"
+                      />
+                    </div>
                     <p className="text-xs text-gray-500 mt-4 text-center">
                       Scan with any UPI app (GPay, PhonePe, Paytm, etc.) to pay automatically
+                    </p>
+                    <p className="text-xs text-gray-600 mt-2 text-center font-semibold">
+                      UPI ID: 9898881882thanganat-1@okicici
                     </p>
                   </div>
                 </div>
